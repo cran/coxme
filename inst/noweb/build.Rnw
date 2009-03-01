@@ -1,0 +1,571 @@
+%
+% Second part of the main code
+%
+\subsection{Fixed effects}
+The mixed effects Cox model is written as
+\begin{eqnarray*}
+  \lambda(t) &=& \lambda_0(t) e^{X \beta + Z b}\\
+  b &\sim& N(0, \Sigma(\theta))
+\end{eqnarray*}
+The coefficient vectors $\beta$ and $b$ correspond the the
+fixed and random effects, respectively,
+with $X$ and $Z$ as the respective design matrices.
+
+It is now time to build $X$, the design matrix for the fixed effects.
+The
+of the model. 
+We first separate the model into random and fixed effects terms
+using the [[formula1]] function.
+As an argument it takes the model formula as given by the user
+and it returns a list containing the fixed and random parts of
+the formula, respectively.
+If any vertical bars remain in the fixed result, then there is
+a problem with the supplied formula, 
+usually a random effects term that was missing the enclosing
+parentheses.
+<<decompose-formula>>=
+    flist <- formula1(formula)
+    if (hasAbar(flist$fixed))
+        stop("Invalid formula: a '|' outside of a valid random effects term")
+
+    special <- c("strata", "cluster")
+    Terms <- terms(flist$fixed, special)
+    attr(Terms,"intercept")<- 1  #Cox model always has \Lambda_0
+    strats <- attr(Terms, "specials")$strata
+    cluster<- attr(Terms, "specials")$cluster
+    if (length(cluster)) {
+        stop ("A cluster() statement is invalid in coxme")
+        }
+    if (length(strats)) {
+        temp <- untangle.specials(Terms, 'strata', 1)
+        if (length(temp$vars)==1) strata.keep <- m[[temp$vars]]
+        else strata.keep <- strata(m[,temp$vars], shortlabel=T)
+        strats <- as.numeric(strata.keep)
+        X <- model.matrix(Terms[-temp$terms], m)[,-1,drop=F]
+        }
+    else X <- model.matrix(Terms, m)[,-1,drop=F]
+
+
+@ 
+The key tools for building the matrix are the [[terms]] and [[model.matrix]]
+functions, which are common to all S modeling routines.
+The [[terms]] function takes a standard formula, and returns an object that
+is used for later processing.
+The [[specials]] argument asks the function to note any calls to
+\emph{cluster} or \emph{strata} in the formula, this makes it possible
+for us to pull out those terms for special processing.
+
+The \emph{cluster()} function is used in [[coxph]] to
+obtain a generalized estimating equation (GEE) type of variance estimate.
+Random effects and GEE are two different ways to approach
+correlated outcomes, but they cannot be mixed.  
+Thus such a term is invalid in a [[coxme]] model.
+
+In a Cox model the baseline hazard $\lambda_0$ plays the role of an
+intercept, but the $X$ matrix does not explicitly contain an intercept.
+Nevertheless, contrasts terms, such as the dummy variable codings for
+factors, need to be formed as though there were an intercept term.
+We thus mark the model as containing an intercept column by setting the
+intercept attribute of [[terms]] (and completely ignore any ``-1'' that
+the user put into the model) before calling [[model.matrix]].
+After then remove the unneeded intercept column from the returned
+matrix.  
+The resulting $X$ matrix might have only one column; the [[drop=F]]
+option causes it to remain a matix and not become a vector.
+If there are only random effects in the model, $X$ could even have 0
+columns.
+
+If there are strata, they are removed from the model formula
+before forming the X matrix, since strata effect only the
+baseline hazard.
+The variable [[strata.keep]] retains the strata levels as specified by
+the user.
+The variable [[strats]] has values of 1,2, \ldots and
+is simpler for the underlying C code to deal with.
+
+\subsection{Random effects}
+Creating the random effects components is more complicated than the 
+fixed effects.
+\begin{itemize}
+  \item We need to create both the $Z$ matrix and $\Sigma$.
+  \item The actual form of $Z$ depends on the type of random
+    effect, but often looks like the design matrix for a one way anova.
+    There are many possible correlation structures $\Sigma$.
+  \item If there are multiple random terms, each creates a block of columns
+    in $Z$ and block of values in $\Sigma$.
+  \item For efficiency, any class variables in $Z$ are
+    represented in compressed form, i.e., random intercepts.  
+    Such variables are stored in a matrix $F$ which has a single column 
+    for each class variable, with integer
+    values of 1,2, \ldots that state which coefficient each observation
+    contributes to.. $Z$ will contain the remaining
+    columns.
+\end{itemize}
+The basic flow of the routine is to process the random terms one at a time.
+The [[varlist]] argument 
+describes a variance family for each term; and
+we do two calls for each.
+The first call is to the \emph{initialize} member of the family, giving it the
+$G$ containing the grouping variables along with covariates
+$C$ and whether or not the left hand side contained an intercept, and
+appropriate portions of the initial values (vinit) or fixed variance
+(vfixed) specification.
+It returns corresponding columns of $F$, $Z$ and a mapping [[zmap]] for
+each column of $Z$,  a vector [[theta]] containing
+the initial values for the non-fixed variance parameters (possibly on
+a transformed scale), and a private 
+parameter list which will be passed forward to the matching [[generate]]
+and [[wrapup]] routines.
+Any transformation is private to the variance family function.
+
+The [[formula2]] function is desribed later; it is responsible for 
+further separating the components of each random terms for us: 
+whether the left hand side has
+an intercept, any other variables on the left, grouping variables, and
+optional interaction.
+
+Our first action is to check out the [[varlist]] option.  This is 
+complicated by the fact that users can give a partial one, or none,
+allowing the default to be used for other elements.
+In general [[varlist]] is a named list with one list element per
+random term.  Each element of the list can be:
+\begin{itemize}
+  \item A matrix or list of matrices.  This is useful for genetic
+    data in particular.
+  \item A function which generates a coxme variance family object (of class
+    [[coxmevar]], or the result of a call to such a function.
+\end{itemize}
+We are not backwards compatable with all old-stlye [[coxme]] calls,
+in particular the use of the unevaluated [[bdsI]] function in a list.
+This was mostly used to generate models that can now be directly stated.
+
+The first task is to decide which element of the list goes to 
+which term.  If there is only one random term then [[varlist]] is
+not required to be a list of one element, but we immediately make it so.
+A single list of variance matrices can be ambiguous, for instance if there
+were 2 random terms and one list with two matrices: is this a pair of matrices
+for the first term, or one matrix for each?  We force the user to 
+resolve the ambiguity.
+<<build-control-structures>>=
+nrandom <- length(flist$random)
+if (nrandom ==0) stop("No random effects terms found")
+vparm <- vector('list', nrandom)
+
+ismat <- function (x) class(x) %in% c('matrix', 'bdsmatrix')
+if (missing(varlist) || is.null(varlist)) {
+    varlist <- vector('list', nrandom)
+    for (i in 1:nrandom) varlist[[i]] <- coxmeFull() #default
+    }
+else {
+    if (is.function(varlist)) varlist <- varlist()
+    if (class(varlist)=='coxmevar') varlist <- list(varlist)
+    else if (ismat(varlist))
+        varlist <- list(coxmeMlist(list(varlist)))
+    else {
+        if (!is.list(varlist)) stop("Invalid varlist argument")
+        if (all(sapply(varlist, ismat))) {
+            # A list of matrices
+            if (nrandom >1) 
+                stop(paste("An unlabeled list of matrices is",
+                           "ambiguous when there are multiple random terms"))
+            else varlist <- list(coxmeMlist(varlist))
+            }
+        else {  #the user gave me a list, not all matrices
+            for (i in 1:length(varlist)) {
+                if (is.function(varlist[[i]])) 
+                    varlist[[i]] <-eval(varlist[[i]])
+                if (ismat(varlist[[i]]))
+                    varlist[[i]] <- coxmeMlist(list(varlist[[i]]))
+                if (class(varlist[[i]]) != 'coxmevar') {
+                    if (is.list(varlist[[i]])) {
+                        if (all(sapply(varlist[[i]], ismat)))
+                            varlist[[i]] <- coxmeMlist(varlist[[i]])
+                        else stop("Invalid varlist element")
+                        }
+                    else stop("Invalid varlist element")
+                    }
+                }
+            }
+        }
+    while(length(varlist) < nrandom) varlist <- c(varlist, coxmeFull())
+    }
+
+if (!is.null(names(varlist))) { # put it in the right order
+    vname <- names(varlist)
+    indx <- pmatch(vname, names(random), nomatch=0)
+    if (any(indx==0 & vname!=''))
+        stop(paste("Varlist element not matched:", vname[indx==0 & vname!='']))
+    if (any(indx>0)) {
+        temp <- vector('list', nrandom)
+        temp[indx] <- varlist[indx>0]
+        temp[-indx]<- varlist[indx==0]
+        varlist <- temp
+        }
+    }
+    
+@ 
+At this point we have a valid [[varlist]] object, which is a list with
+one element per random term, each element is an object of class `coxmevar'. %'`
+The current options for these elements are
+\begin{description}
+\item [coxmeFull] All variance/covariance terms between random elements are
+present.  For instance the term [[(1+age | group)]] specifies a random
+intercept and slope.  The variance structure will have 3 parameters: the variance of the intercepts, the
+variance of the slopes, and their covariance.
+\item [coxmeMlist]  The variance is assumed to be of the form
+$\sigma_1^2 A_1 + \sigma_2^2 A_2 + \ldots$ for a set of fixed matrices
+$A_1, A_2, \ldots$.  This is commonly used in genetic studies where $A_1$
+would be the kinship matrix for a set of subjects/families and $A_2$ might
+be the identity-by-descent (IBD) matrix for a particular locus.
+\item [other] a user-defined varlist function.
+\end{description}
+
+Now we proceed through the list one element at a time, and do the necessary
+setup.
+The [[theta]] vector will contain starting values for all of the
+variance parameters that are \emph{not} fixed, and [[ntheta[i]]] the
+number of values that each random term contributed.
+The final $\theta$ vector will be null if all the parameters are fixed. 
+The [[ncoef]] matrix has a row for each term, containing the number
+of intercepts and slopes for that term.  
+The definition of 4 helper functions is deferred until later.
+
+<<build-control-structures>>=    
+<<get-cmat>>
+<<get-groups>>
+<<make-vinit>>
+<<newzmat>>
+fmat <- zmat <- matrix(0, nrow=n, ncol=0)
+ntheta <- integer(nrandom)
+ncoef  <- matrix(0L, nrandom, 2, dimnames=list(NULL, c("intercept", "slope")))
+theta <-  NULL   #initial values of parameters to iterate over
+
+for (i in 1:nrandom) {
+    f2 <- formula2(flist$random[[i]])
+    if (f2$intercept & f2$group==1)
+        stop(paste("Error in random term ", i, 
+                   ": Random intercepts require a grouping variable", sep=''))
+    vfun <- varlist[[i]]
+    if (!is.null(f2$interaction)) stop("Interactions not yet written")
+
+    cmat <- getcmat(f2$fixed, m)
+    groups <- getgroups(f2$group, m)
+    ifun <- vfun$initialize(vinit[[i]], vfixed[[i]], intercept=f2$intercept, 
+                        groups, cmat, sparse)
+    if (!is.null(ifun$error)) 
+        stop(paste("In random term ", i, ": ", ifun$error, sep=''))
+    vparm[[i]] <- ifun$parms
+
+    theta <- c(theta, ifun$theta)
+    ntheta[i] <- length(ifun$theta)
+
+    if (f2$intercept) {
+        if (!is.matrix(ifun$imap) || nrow(ifun$imap) !=n) 
+            stop(paste("In random term ", i, 
+                       ": Invalid intercept matrix F", sep=''))
+        temp <- sort(unique(c(ifun$imap)))
+        if (any(temp != 1:length(temp)))
+            stop(paste("In random term ", i,
+                       ": intercept matrix has an invalid element", sep=''))
+
+        fmat <- cbind(fmat, ifun$imap)
+        ncoef[i,1] <- 1+ max(ifun$imap) - min(ifun$imap)
+        }
+
+    if (length(cmat)>0) {
+        if (is.null(ifun$xmap) || is.null(ifun$X) ||
+            !is.matrix(ifun$xmap) || !is.matrix(ifun$X) ||
+            nrow(ifun$xmap) !=n || nrow(ifun$X) != n ||
+            ncol(ifun$xmap) != ncol(ifun$X))
+            stop(paste("In random term ", i,
+                       "invalid X/xmap pair"))
+        if (f2$intercept) xmap <- ifun$xmap - max(ifun$imap)
+        else xmap <- ifun$xmap
+        if (any(sort(unique(c(xmap))) != 1:max(xmap)))
+             stop(paste("In random term ", i,
+                       ": xmap matrix has an invalid element", sep=''))
+        
+        temp <- newzmat(ifun$X, xmap)
+        ncoef[i,2] <- ncol(temp)
+        zmat <- cbind(zmat, temp)
+        }
+    } 
+@ 
+
+The matrix $F$ holds the columns associated with intercept terms,
+so has columns added only if the new random terms has a 1 on the
+left side of the formula.
+It is also (at present) the only case in which sparse computation is
+known to be valid. 
+Further discussion of this rather subtle topic is found in the section
+on variance functions.
+The underlying C programs can't deal with holes in a factor variable. %'
+That is, every column of fmat must be integers, with minimum 1 and no
+gaps.  
+
+Now to fill in a few blanks from the above discussion.
+First the vector (list) of initial values [[vinit]] or fixed variance
+values [[vfixed]] given by the user may not be complete.
+We want to expand them out to to lists, and have the same length as 
+[[varlist]].
+In the case of multiple terms, we allow the user to specify a subset of
+them, using the names of the grouping variables.  If names are
+not used (or are not unique) things match in order.
+If there is a single random term we allow a numeric vector.
+<<make-vinit>>=
+if (missing(vinit) || is.null(vinit)) vinit <- vector('list', nrandom)
+else {
+    if (nrandom==1 && is.numeric(vinit)) vinit <- list(vinit)
+    if (!is.list(vinit)) stop("Invalid value for `vinit` parameter")
+    if (length(vinit) > nrandom) 
+        stop (paste("Vinit must be a list of length", nrandom))
+    if (!all(sapply(vinit, is.numeric))) 
+        stop("Vinit must contain numeric values") 
+    
+    if (length(vinit) < nrandom) 
+        vinit <- c(vinit, vector('list', nrandom - length(vinit)))
+                   
+    tname <- names(vinit)
+    if (!is.null(tname)) {
+        temp <- pmatch(tname, names(flist$random), nomatch=0)
+        temp <- c(temp, (1:nrandom)[-temp])
+        vinit <- vinit[temp]
+        }
+  }
+
+if (missing(vfixed) || is.null(vfixed)) vfixed <- vector('list', nrandom)
+else {
+    if (nrandom==1 && is.numeric(vfixed)) vfixed <- list(vfixed)
+    if (!is.list(vfixed)) stop("Invalid value for `vfixed` parameter")
+    if (length(vfixed) > nrandom) 
+        stop (paste("Vfixed must be a list of length", nrandom))
+    if (!all(sapply(vfixed, is.numeric))) 
+        stop("Vfixed must contain numeric values") 
+    
+    if (length(vfixed) < nrandom) 
+        vfixed <- c(vfixed, vector('list', nrandom - length(vfixed)))
+                   
+    tname <- names(vfixed)
+    if (!is.null(tname)) {
+        temp <- pmatch(tname, names(flist$random), nomatch=0)
+        temp <- c(temp, (1:nrandom)[-temp])
+        vfixed <- vfixed[temp]
+        }
+  }
+@ 
+
+The actual computation of the model is done in [[coxme.fit]].  
+This was separated from the main routine partly to leave the code in
+managable chunks.
+<<call-computation-routine>>=
+fit <- coxme.fit(X, Y, strats, offset, init, control, weights=weights,
+                 ties=ties, row.names(m),
+                 fmat, zmat, varlist, vparm, 
+                 theta, ntheta, ncoef, refine.n)
+@ 
+
+Then we finish up by packaging up the results for a user.
+The first few lines are the case where a fatal error occured, in which
+case the result contains only the failure line.
+(Is this needed?)
+<<finish-up>>=
+if (is.character(fit)) {
+    fit <- list(fail=fit)
+    oldClass(fit) <- 'coxme'
+    return(fit)
+    }
+@ 
+
+Now add labels to the fixed coefficients and to the frailty terms.
+The [[coefficients]] portion of the returned object conttains the
+values for $\hat \beta$ (fixed) and for the variances $\hat \theta$.
+The [[frail]] component contains the values for $\hat b$.
+<<finish-up>>=
+fcoef <- fit$coefficients
+nvar <- length(fcoef)
+if (length(fcoef)>0 && any(is.na(fcoef))) {
+    vars <- (1:length(fcoef))[is.na(fcoef)]
+    msg <-paste("X matrix deemed to be singular; variable",
+                    paste(vars, collapse=" "))
+    warning(msg)
+    }
+if (length(fcoef) >0) {
+    names(fcoef) <- dimnames(X)[[2]]
+    }
+@ 
+
+Add up the part of the linear predictor due to random terms, 
+and add this to the fixed portion to get a linear predictor
+<<finish-up>>=
+rlinear <- rep(0., nrow(Y))
+indx <- 0
+if (length(fmat)) {
+    for (i in 1:ncol(fmat)) {
+        rlinear <- rlinear + fit$frail[fmat[,i]+indx]
+        indx <- indx + max(fmat[,i])
+        }
+    }
+if (length(zmat)) {
+    for (i in 1:ncol(zmat))
+        rlinear <- rlinear + fit$frail[indx+i]*zmat[,i]
+    }
+
+if (nvar==0) fit$linear.predictor <- rlinear
+else fit$linear.predictor <- as.vector(rlinear + c(X %*% fit$coef))
+@
+
+Our last action for the random terms is to call the 
+[[wrapup]] functions, which retransform (if needed) 
+$\theta$ back to the user's scale, re-insert (if needed)  %'
+any fixed parameters, label the vector, and label/arrange
+the random coefficients $b$.
+<<finish-up>>=
+newtheta <- random.coef <- list()  
+nrandom <- length(varlist)
+sindex <- rep(1:nrandom, ntheta) #which thetas to which terms
+bindex <- rep(1:nrandom, rowSums(ncoef)) # which b's to which terms
+for (i in 1:nrandom) {
+    temp <- varlist[[i]]$wrapup(fit$theta[sindex==i], fit$frail[bindex==i], 
+                                vparm[[i]])
+    newtheta <- c(newtheta, temp$theta)
+    if (!is.list(temp$b)) {
+        temp$b <- list(temp$b)
+        names(temp$b) <- paste("Random", i, sep='')
+        }
+    random.coef <- c(random.coef, temp$b)
+    }
+
+fit$coefficients <- list(fixed=fcoef, random=newtheta)
+fit$frail <- random.coef
+fit$beta <- NULL
+fit$theta <- NULL
+@ 
+ 
+Last fill in a set of miscellaneous members of the structure
+<<finish-up>>=
+fit$n <- c(sum(Y[,ncol(Y)]), nrow(Y))
+fit$terms <- Terms
+fit$assign <- attr(X, 'assign')
+fit$formulaList <- flist
+
+na.action <- attr(m, "na.action")
+if (length(na.action)) fit$na.action <- na.action
+if (x)  {
+    fit$x <- X
+    if (length(strats)) fit$strata <- strata.keep
+    }
+if (y)     fit$y <- Y
+if (!is.null(weights) && any(weights!=1)) fit$weights <- weights
+
+fit$formula <- as.vector(attr(Terms, "formula"))
+fit$call <- Call
+fit$ties <- ties
+names(fit$loglik) <- c("NULL", "Integrated", "Penalized")
+oldClass(fit) <- 'coxme'
+fit
+}
+@ 
+
+\subsection{Creating the $C$ and $F$ matrices}
+To create the columns for $F$ there are 3 steps.
+First we get the variables from the data frame, treating each of them
+as a factor.  This is then submitted to the
+appropriate coxme variance family function, which
+creates the integer matrix of codes that are actually used.
+
+We extract the list of variable names for the nesting portion,
+at the same time checking that it consists of nothing but variables
+and slash operators.
+<<get-groups>>=
+getGroupNames <- function(x) {
+    if (is.call(x) && x[[1]]==as.name('/')) 
+        c(getGroupNames(x[[2]]), getGroupNames(x[[3]]))
+    else deparse(x)
+    }
+
+getgroups <- function(x, mf) {
+    if (is.numeric(x)) return(NULL)  # a shrinkage effect like (x1+x2 | 1)
+    varname <- getGroupNames(x)
+    indx <- match(varname, names(mf), nomatch=0)
+    if (any(indx==0)) stop(paste("Invalid grouping factor", varname[indx==0]))
+    else data.frame(lapply(mf[indx], as.factor))
+    }
+@ 
+A common task for the variance functions is to expand [[school/teacher]]
+type terms into a set of unique levels, i.e., to find all the unique
+combinations of the two variables.  Teacher 1 in school 1 is not the same
+person as teacher 1 in school 2.
+We can't use the usual processing functions such as [[model.matrix]]  %'
+to create the nesting variables, since it also expands the factors
+into multiple columns of a matrix.  (This is how [[lmer]] does it.)
+We will use the [[strata]] function from the standard survival library.
+<<expand.nested>>=
+expand.nested <- function(x) {
+    xname <- names(x)
+    x[[1]] <- as.factor(x[[1]])[,drop=T]
+    if (length(x) >1) {
+        for (i in seq(2, length(x), by=1)) {
+            x[[i]] <- strata(x[[i-1]], x[[i]], shortlabel=TRUE, sep='/')
+            xname[i] <- paste(xname[i-1], xname[i], sep='/')
+            }
+       } 
+    names(x) <- xname
+    x
+    }
+@     
+
+Creation of the $C$ matrix is just a bit more work.  
+One issue is that none of the standard S contrast options is correct.
+With a Gaussian random effect, either a random intercept or a random slope,  
+the proper constraint is $b' \Sigma =0$;       %'
+this is familiar from older statistics textbooks for ANOVA as the ``sum 
+constraint''. 
+For a random effect this constraint is automatically enforced by the 
+penalized optimization, so the proper coding of a factor with $k$ levels
+is as $k$ indicator variables.
+We do this by imposing our own contrasts. 
+
+Update. I've realized that factors are more of a problem than I
+thought.  The current solution is not to allow factors on the
+covariates.  The issue is that the downstream routine has to know
+when to use a common variance for two columns of cmat, and when not to,
+and (even harder) that the correlation between an intercept and a factor
+is not clear.
+<<get-cmat>>=
+getcmat <- function(x, mf) {
+    if (is.null(x) || x==1) return(NULL)
+    Terms <- terms(eval(call("~", x)))
+    attr(Terms, 'intercept') <- 0  #ignore any "1+" that is present
+
+    varnames <-  attr(Terms, 'term.labels')
+    ftemp <- sapply(mf[varnames], is.factor)
+    if (any(ftemp)) {
+        stop("Factors are not valid as a covariate within a random effect")
+        clist <- lapply(mf[varnames[ftemp]], 
+                        function(x) diag(length(levels(x))))
+        model.matrix(Terms, mf, contrasts.arg =clist)
+        }
+    else model.matrix(Terms, mf)
+    }
+@ 
+
+The initial function returns both a set of covariates $X$ and
+a coefficient map for each column of $X$, showing for each
+row of data which coefficient the term maps to.
+If the map has multiple columns and/or any one of the columns has a lot of 
+levels then $Z$ can get very large.  
+Additionally, if $Z$ has $p$ columns then the Hessian matrix 
+for the corresponding
+parameters is $p$ by $p$.  
+This is an area where the code could use more sparse matrix intelligence, i.e.,
+so that the expanded $Z$ need never be created.
+
+<<newzmat>>=
+newzmat <- function(xmat, xmap) {
+    n <- nrow(xmap)
+    newz <- matrix(0., nrow=n, ncol=max(xmap))
+    for (i in 1:ncol(xmap)) 
+        newz[cbind(1:n, xmap[,i])] <- xmat[,i]
+    newz
+    }
+@ 

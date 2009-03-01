@@ -1,0 +1,146 @@
+
+R version 2.9.0 (2009-04-17)
+Copyright (C) 2009 The R Foundation for Statistical Computing
+ISBN 3-900051-07-0
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> library(coxme)
+Loading required package: survival
+Loading required package: splines
+Loading required package: bdsmatrix
+> options(na.action='na.exclude', contrasts=c('contr.treatment', 'contr.poly'))
+> aeq <- function(x,y) all.equal(as.vector(x), as.vector(y))
+> 
+> #
+> # Now do iterations on tdata0, checking it out with coxph.detail
+> #   Note that the coxph calls give some "singular matrix" warnings
+> #   which can be ignored
+> #
+> tdata0 <- data.frame(time  =c(5,4,1,1,2,2,2,2,3), 
++                      status=c(0,1,1,0,1,1,1,0,0),
++                      x1    =c(0,1,2,0,1,1,0,1,0),
++                      wt    =c(1,2,1,2,3,4,3,2,1),
++                      x2    =c(1,3,5,2,3,6,4,3,1),
++                      grp   =c(1,1,2,2,1,1,2,2,1))
+> theta <- .53
+> fit0 <- coxme(Surv(time, status) ~ x1 + x2 + (1|grp), data=tdata0,
++               vfixed=theta, weight=wt, iter=0)
+> 
+> tfit <- coxph(Surv(time, status) ~ I(grp==1) + I(grp==2) + x1 + x2,
++ 	      data=tdata0, x=T, weight=wt, iter=0)
+Warning message:
+In coxph(Surv(time, status) ~ I(grp == 1) + I(grp == 2) + x1 + x2,  :
+  X matrix deemed to be singular; variable 2
+> dt0 <- coxph.detail(tfit)
+> 
+> aeq(apply(dt0$score,2,sum), fit0$u)
+[1] TRUE
+> h0 <- apply(dt0$imat,1:2,sum) + diag(c(1/theta, 1/theta,0,0))
+> aeq(as.matrix(gchol(h0)), as.matrix(fit0$hmat))
+[1] TRUE
+> aeq(as.matrix(solve(fit0$var, full=F)), h0)
+[1] TRUE
+> 
+> # Now iteration 1
+> fit1 <- coxme(Surv(time, status) ~ x1 + x2 +(1|grp), data=tdata0,
++               vfixed=theta, weight=wt, iter=1)
+> aeq(fit0$u %*% fit0$var, c(unlist(fit1$frail), coef(fit1)$fixed))
+[1] TRUE
+> tfit <- coxph(Surv(time, status) ~ I(grp==1) + I(grp==2) + x1 + x2,
++ 	      data=tdata0, x=T, weight=wt, iter=0,
++ 	      init=c(unlist(fit1$frail), coef(fit1)$fixed))
+Warning message:
+In coxph(Surv(time, status) ~ I(grp == 1) + I(grp == 2) + x1 + x2,  :
+  X matrix deemed to be singular; variable 2
+> dt1 <- coxph.detail(tfit)
+> 
+> aeq(apply(dt1$score,2,sum)- c(unlist(fit1$frail), 0,0)/theta, fit1$u)
+[1] TRUE
+> h1 <- apply(dt1$imat,1:2,sum) + diag(c(1/theta, 1/theta,0,0))
+> aeq(as.matrix(gchol(h1)), as.matrix(fit1$hmat))
+[1] TRUE
+> aeq(as.matrix(solve(fit1$var, full=F)), h1)
+[1] TRUE
+> 
+> # And iteration 2
+> fit2 <- coxme(Surv(time, status) ~ x1 + x2 + (1|grp), data=tdata0,
++               vfixed=theta, weight=wt, iter=2)
+> aeq(solve(fit1$hmat, fit1$u), 
++     c(unlist(fit2$frail), coef(fit2)$fixed) - 
++     c(unlist(fit1$frail), coef(fit1)$fixed))
+[1] TRUE
+> aeq(solve(fit1$hmat, fit1$u), fit1$variance %*% fit1$u)
+[1] TRUE
+> 
+> #
+> # a copy of tdata0, but with several subjects broken into multiple pieces,
+> #  exercises the "add in & take out" portions of the code
+> #
+> rcnt <- c(3,2,1,1,1,2,2,1,3)  # rep count
+> tdata0b <- data.frame(time2  = c(3,4,5, 2,4, 1,1,2, 1,2, .5,2, 2, 1,2,3), 
++ 		      time1  = c(0,3,4, 0,2, 0,0,0, 0,1, 0,.5, 0, 0,1,2),
++ 		      status = c(0,0,0, 0,1, 1,0,1, 0,1, 0, 1, 0, 0,0,0),
++                       x1     = rep(tdata0$x1, rcnt),
++                       wt     = rep(tdata0$wt, rcnt),
++                       x2     = rep(tdata0$x2, rcnt),
++                       grp    = rep(tdata0$grp, rcnt))
+> fit0 <- coxme(Surv(time1, time2, status) ~ x1 + x2 + (1|grp), data=tdata0b,
++               vfixed=theta, weight=wt, iter=0)
+> 
+> tfit <- coxph(Surv(time1, time2, status) ~ I(grp==1) + I(grp==2) + x1 + x2,
++ 	      data=tdata0b, x=T, weight=wt, iter=0)
+Warning message:
+In coxph(Surv(time1, time2, status) ~ I(grp == 1) + I(grp == 2) +  :
+  X matrix deemed to be singular; variable 2
+> dt0 <- coxph.detail(tfit)
+> 
+> aeq(apply(dt0$score,2,sum), fit0$u)
+[1] TRUE
+> h0 <- apply(dt0$imat,1:2,sum) + diag(c(1/theta, 1/theta,0,0))
+> aeq(as.matrix(gchol(h0)), as.matrix(fit0$hmat))
+[1] TRUE
+> aeq(as.matrix(solve(fit0$var, full=F)), h0)
+[1] TRUE
+> 
+> # Now iteration 1
+> fit1 <- coxme(Surv(time1, time2, status) ~ x1 + x2 + (1|grp), data=tdata0b,
++               vfixed=theta, weight=wt, iter=1)
+> aeq(fit0$u %*% fit0$var, c(unlist(fit1$frail), coef(fit1)$fixed))
+[1] TRUE
+> tfit <- coxph(Surv(time1, time2, status) ~ I(grp==1) + I(grp==2) + x1 + x2,
++ 	      data=tdata0b, x=T, weight=wt, iter=0,
++ 	      init=c(unlist(fit1$frail), coef(fit1)$fixed))
+Warning message:
+In coxph(Surv(time1, time2, status) ~ I(grp == 1) + I(grp == 2) +  :
+  X matrix deemed to be singular; variable 2
+> dt1 <- coxph.detail(tfit)
+> 
+> aeq(apply(dt1$score,2,sum)- c(unlist(fit1$frail), 0,0)/theta, fit1$u)
+[1] TRUE
+> h1 <- apply(dt1$imat,1:2,sum) + diag(c(1/theta, 1/theta,0,0))
+> aeq(as.matrix(gchol(h1)), as.matrix(fit1$hmat))
+[1] TRUE
+> aeq(as.matrix(solve(fit1$var, full=F)), h1)
+[1] TRUE
+> 
+> # And iteration 2
+> fit2 <- coxme(Surv(time1, time2, status) ~ x1 + x2 + (1|grp), data=tdata0b,
++               vfixed=theta, weight=wt, iter=2)
+> aeq(fit1$u %*% fit1$var, c(unlist(fit2$frail), coef(fit2)$fixed) - 
++                          c(unlist(fit1$frail), coef(fit1)$fixed))
+[1] TRUE
+> 
+> rm(fit0, fit1, dt0, dt1, tfit, h0, h1, theta)
+> rm(fit2)
+> 

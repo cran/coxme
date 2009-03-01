@@ -1,0 +1,60 @@
+
+R version 2.9.2 (2009-08-24)
+Copyright (C) 2009 The R Foundation for Statistical Computing
+ISBN 3-900051-07-0
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> library(coxme)
+Loading required package: survival
+Loading required package: splines
+Loading required package: bdsmatrix
+> aeq <- function(x,y) all.equal(as.vector(x), as.vector(y))
+> #
+> # Variable shrinkage
+> #
+> ecog0 <- 1*(lung$ph.ecog==0)
+> ecog1 <- 1*(lung$ph.ecog==1)
+> ecog2 <- 1*(lung$ph.ecog==2)
+> ecog3 <- 1*(lung$ph.ecog==3)
+> 
+> fit1 <- coxph(Surv(time, status) ~ age + ridge(ecog0, ecog1, ecog2, ecog3,
++                                                scale=FALSE, theta=2), lung)
+> 
+> fit2 <- coxme(Surv(time, status) ~ age + (ecog0+ecog1+ecog2+ecog3 |1), lung,
++               vfixed=.5)
+> 
+> aeq(fit1$coef, c(coef(fit2)$fixed, unlist(fit2$frail)))
+[1] TRUE
+> indx <- c(5,1,2,3,4) #in coxme, shrinkage variables are first
+> all.equal(fit1$var, as.matrix(fit2$var)[indx, indx])
+[1] TRUE
+> 
+> fit3 <- coxme(Surv(time, status) ~ age + (1|ph.ecog), lung, vfixed=.5)
+> all.equal(fit2$var, fit3$var)
+[1] TRUE
+> all.equal(fit2$loglik, fit3$loglik)
+[1] TRUE
+> 
+> fit4 <- coxme(Surv(time, status) ~ age + (1|ph.ecog), lung)
+> dname <- paste("ecog", 0:3, sep='')
+> dummy <- matrix(diag(4), 4, dimnames=list(dname,dname))
+> fit5 <- coxme(Surv(time, status) ~ age + (ecog0+ecog1+ecog2+ecog3 |1), lung,
++               varlist=dummy)
+> all.equal(fit4$log, fit5$log)
+[1] TRUE
+> all.equal(fit4$coef, fit5$coef, check.attributes=FALSE) #names will differ
+[1] TRUE
+> 
+> 
+> 

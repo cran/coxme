@@ -1,0 +1,315 @@
+
+R version 2.9.0 (2009-04-17)
+Copyright (C) 2009 The R Foundation for Statistical Computing
+ISBN 3-900051-07-0
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> library(coxme)
+Loading required package: survival
+Loading required package: splines
+Loading required package: bdsmatrix
+> options(na.action='na.exclude', contrasts=c('contr.treatment', 'contr.poly'))
+> aeq <- function(x,y) all.equal(as.vector(x), as.vector(y))
+> 
+> #
+> # Test of fitting random slopes
+> #
+> # Simulation data with 9 institutions, strong age effects
+> #  and a random treatment effect
+> #      
+> set.seed(56)
+> n.subject <- seq(180, by=21, length=9) # number of subjects
+> slope <- sort(-.5 + rnorm(9, sd=.5))         # true treament effects
+> 
+> inst <- rep(1:9, n.subject)
+> n <- length(inst)
+> simdata <- data.frame(id=1:n, inst=inst,
++                       trt= rep(0:1, length=n),
++                       age= runif(n, 40, 70))
+> #risk goes up 30%/decade of age
+> simdata$hazard <- .8* exp(simdata$trt * rep(slope, n.subject) +
++                           (simdata$age-55) * .03)
+> 
+> rtime <- function(hazard, censor=c(1,2)) {
++     stime <- rexp(length(hazard), rate=hazard)
++     ctime <- runif(length(hazard), censor[1], censor[2])
++     list(time= pmin(stime, ctime), status=1*(stime <=ctime))
++     }
+> temp <- rtime(simdata$hazard)
+> simdata$time <- temp$time
+> simdata$status <- temp$status
+> 
+> coef0 <- matrix(0., 2,9)
+> for (i in 1:9) {
++     fit0 <- coxph(Surv(time, status) ~ age + trt, simdata,
++                   subset=(inst==i))
++     coef0[,i] <- fit0$coef
++     }
+> 
+> fit0 <- coxph(Surv(time, status) ~ age + trt, simdata)
+> fit1 <- coxme(Surv(time, status) ~ age + trt + (1|inst), simdata)
+> print(fit1, rcoef=TRUE)
+Cox mixed-effects model fit by maximum likelihood
+  Data: simdata
+  events, n = 1504, 2376
+  Iterations= 5 28 
+                    NULL Integrated Penalized
+Log-likelihood -10892.32  -10826.57 -10822.02
+
+                   Chisq   df p   AIC    BIC
+Integrated loglik 131.50 3.00 0 125.5 109.55
+ Penalized loglik 140.61 7.41 0 125.8  86.42
+
+Model:  Surv(time, status) ~ age + trt + (1 | inst) 
+Fixed and penalized coefficients
+              coef exp(coef)    se(coef)     z       p
+age     0.02994814 1.0304011 0.003022897  9.91 0.0e+00
+trt    -0.24972461 0.7790153 0.051899843 -4.81 1.5e-06
+inst.1 -0.12340995 0.8839012 0.078765930              
+inst.2 -0.00768660 0.9923429 0.075814087              
+inst.3 -0.04397800 0.9569750 0.074542786              
+inst.4 -0.12127349 0.8857917 0.073410348              
+inst.5  0.03235271 1.0328817 0.071051724              
+inst.6  0.09169978 1.0960357 0.070172255              
+inst.7 -0.01707994 0.9830651 0.069194962              
+inst.8  0.02449549 1.0247980 0.068160628              
+inst.9  0.16487999 1.1792516 0.066877069              
+
+Random effects
+ Group Variable  Std Dev    Variance  
+ inst  Intercept 0.11411655 0.01302259
+> fit2 <- coxme(Surv(time, status) ~ age + trt + (1|inst/trt), simdata)
+> print(fit2, rcoef=TRUE)
+Cox mixed-effects model fit by maximum likelihood
+  Data: simdata
+  events, n = 1504, 2376
+  Iterations= 15 78 
+                    NULL Integrated Penalized
+Log-likelihood -10892.32  -10814.83 -10802.44
+
+                   Chisq   df p    AIC    BIC
+Integrated loglik 154.98  4.0 0 146.98 125.71
+ Penalized loglik 179.77 14.2 0 151.37  75.88
+
+Model:  Surv(time, status) ~ age + trt + (1 | inst/trt) 
+Fixed and penalized coefficients
+                      coef exp(coef)    se(coef)     z      p
+age           0.0309016690 1.0313841 0.003035530 10.18 0.0000
+trt          -0.3034538269 0.7382640 0.108591362 -2.79 0.0052
+inst/trt.1/0 -0.0372432879 0.9634417 0.122275467             
+inst/trt.1/1 -0.2616611449 0.7697718 0.130576152             
+inst/trt.2/0  0.0940191065 1.0985807 0.116757205             
+inst/trt.2/1 -0.1246900755 0.8827705 0.125130571             
+inst/trt.3/0  0.1114802648 1.1179317 0.115213683             
+inst/trt.3/1 -0.2197110918 0.8027507 0.122632951             
+inst/trt.4/0 -0.1231074438 0.8841687 0.114350486             
+inst/trt.4/1 -0.1543242607 0.8569941 0.120276168             
+inst/trt.5/0  0.0434537068 1.0444116 0.110499028             
+inst/trt.5/1  0.0272378959 1.0276122 0.115488858             
+inst/trt.6/0  0.1540495772 1.1665487 0.108392663             
+inst/trt.6/1  0.0415917948 1.0424689 0.114685100             
+inst/trt.7/0 -0.0354370631 0.9651835 0.108869466             
+inst/trt.7/1 -0.0007648831 0.9992354 0.111449427             
+inst/trt.8/0 -0.1499616326 0.8607410 0.108078337             
+inst/trt.8/1  0.2272891906 1.2551928 0.108914070             
+inst/trt.9/0 -0.0572532278 0.9443549 0.105627712             
+inst/trt.9/1  0.4650325748 1.5920660 0.106855713             
+inst.1       -0.0023253739 0.9976773 0.017642240             
+inst.2       -0.0002386096 0.9997614 0.017637636             
+inst.3       -0.0008419987 0.9991584 0.017635968             
+inst.4       -0.0021583235 0.9978440 0.017634684             
+inst.5        0.0005499564 1.0005501 0.017631299             
+inst.6        0.0015220227 1.0015232 0.017630202             
+inst.7       -0.0002816387 0.9997184 0.017629136             
+inst.8        0.0006015819 1.0006018 0.017627881             
+inst.9        0.0031723834 1.0031774 0.017626240             
+
+Random effects
+ Group    Variable    Std Dev      Variance    
+ inst/trt (Intercept) 0.2009613020 0.0403854449
+ inst     (Intercept) 0.0177252618 0.0003141849
+> 
+> fit3 <- coxme(Surv(time, status) ~ age + trt + (1|inst) + (trt|inst),simdata)
+> print(fit3, rcoef=TRUE)
+Cox mixed-effects model fit by maximum likelihood
+  Data: simdata
+  events, n = 1504, 2376
+  Iterations= 7 39 
+                    NULL Integrated Penalized
+Log-likelihood -10892.32  -10812.97 -10803.33
+
+                   Chisq    df p    AIC    BIC
+Integrated loglik 158.72  4.00 0 150.72 129.45
+ Penalized loglik 177.98 10.68 0 156.62  99.85
+
+Model:  Surv(time, status) ~ age + trt + (1 | inst) + (trt | inst) 
+Fixed and penalized coefficients
+                   coef exp(coef)    se(coef)     z      p
+age         0.030723249 1.0312001 0.003030259 10.14 0.0000
+trt        -0.305917820 0.7364471 0.108007777 -2.83 0.0046
+inst.1     -0.019583853 0.9806067 0.053974071             
+inst.2      0.020838296 1.0210569 0.053491954             
+inst.3      0.022453840 1.0227078 0.053296534             
+inst.4     -0.040362461 0.9604413 0.052394333             
+inst.5      0.016105371 1.0162358 0.052153185             
+inst.6      0.052100022 1.0534811 0.052068050             
+inst.7     -0.009664679 0.9903819 0.051550101             
+inst.8     -0.040316689 0.9604852 0.050961577             
+inst.9     -0.001569847 0.9984314 0.050663347             
+inst.1:trt -0.298988518 0.7415679 0.161528403             
+inst.2:trt -0.157652725 0.8541464 0.153957252             
+inst.3:trt -0.269280325 0.7639291 0.151639927             
+inst.4:trt -0.139948512 0.8694030 0.148824042             
+inst.5:trt  0.024833452 1.0251444 0.142916385             
+inst.6:trt  0.010610764 1.0106673 0.141949651             
+inst.7:trt  0.015126796 1.0152418 0.138967038             
+inst.8:trt  0.294922782 1.3430226 0.135982118             
+inst.9:trt  0.520376286 1.6826607 0.133554803             
+
+Random effects
+ Group Variable  Std Dev     Variance   
+ inst  Intercept 0.059646767 0.003557737
+ inst  trt       0.282094798 0.079577475
+> 
+> fit4 <- coxme(Surv(time, status) ~ age + trt + (1 +trt |inst), simdata)
+> 
+> sfit0 <- coxph(Surv(time, status) ~ age + trt + strata(inst), simdata)
+> sfit1 <- coxme(Surv(time, status) ~ age + trt + (trt|inst) + strata(inst),
++                simdata)
+> print(sfit1, rcoef=TRUE)
+Cox mixed-effects model fit by maximum likelihood
+  Data: simdata
+  events, n = 1504, 2376
+  Iterations= 7 38 
+                    NULL Integrated Penalized
+Log-likelihood -7636.963    -7564.2   -7557.1
+
+                   Chisq  df p    AIC    BIC
+Integrated loglik 145.53 3.0 0 139.53 123.58
+ Penalized loglik 159.73 8.3 0 143.12  98.99
+
+Model:  Surv(time, status) ~ age + trt + (trt | inst) + strata(inst) 
+Fixed and penalized coefficients
+                  coef exp(coef)    se(coef)     z      p
+age         0.03096584 1.0314503 0.003047179 10.16 0.0000
+trt        -0.31040028 0.7331534 0.116616742 -2.66 0.0078
+inst.1:trt -0.23581210 0.7899291 0.190742472             
+inst.2:trt -0.23588997 0.7898676 0.179204360             
+inst.3:trt -0.34258453 0.7099331 0.176437915             
+inst.4:trt -0.03708907 0.9635903 0.174778874             
+inst.5:trt -0.01856659 0.9816047 0.166031814             
+inst.6:trt -0.09182265 0.9122669 0.163519310             
+inst.7:trt  0.03377703 1.0343539 0.162381052             
+inst.8:trt  0.39199029 1.4799233 0.159365532             
+inst.9:trt  0.53599761 1.7091525 0.155115030             
+
+Random effects
+ Group Variable Std Dev    Variance  
+ inst  trt      0.31059624 0.09647003
+> 
+> #Comparison plot
+> y <- cbind(slope, NA, coef0[2,], fixef(sfit1)[2] + unlist(sfit1$frail),
++            fixef(fit3)[2] + fit3$frail[[2]],
++            fixef(fit4)[2] + fit4$frail[[1]][,2])
+> matplot(c(1, 1.5, 2:5), t(y), type='b', xaxt='n', xlab="Simulation", 
++         ylab="Treatment coefficient", lty=1)
+> axis(1, 1:5, c("Sim", "Separate", "Strata", "Uncor", "Corr"))
+> 
+> 
+> #
+> # Now compute some things exactly
+> #
+> contr.none <- function(n,contrasts=T) {
++         if(is.numeric(n) && length(n) == 1.)
++                 levs <- 1.:n
++         else {
++                 levs <- n
++                 n <- length(n)
++         }
++         contr <- array(0., c(n, n), list(levs, levs))
++         contr[seq(1., n^2., n + 1.)] <- 1.
++         contr
++         }
+> options(contrasts=c('contr.none', 'contr.poly'))
+> igchol <- function(x) {
++     dd <- diag(x)
++     ll <- as.matrix(x)
++     ll %*% diag(dd) %*% t(ll)
++     }
+> 
+> # For fit2
+> vtemp <- unlist(ranef(fit2))
+> names(vtemp) <- names(ranef(fit2))
+> fit2a <- coxme(Surv(time, status) ~ age + trt + (1|inst/trt), simdata,
++                iter=0, vfixed=vtemp)
+> temp <- strata(simdata$inst, simdata$trt, sep='/', shortlabel=TRUE)
+> cfit <- coxph(Surv(time, status) ~ factor(temp) +factor(inst) +age + trt,
++               simdata, iter=0, x=T)
+Warning message:
+In coxph(Surv(time, status) ~ factor(temp) + factor(inst) + age +  :
+  X matrix deemed to be singular; variable 18 19 20 21 22 23 24 25 26 27 29
+> dt2 <- coxph.detail(cfit)
+> u2 <- apply(dt2$score, 2, sum)
+> aeq(u2, fit2a$u)
+[1] TRUE
+> imat2 <- apply(dt2$imat, 1:2, sum) + diag(c(rep(1/vtemp, c(18,9)),0,0))
+> aeq(imat2, as.matrix(igchol(fit2a$hmat)))
+[1] TRUE
+> 
+> # For fit3
+> vtemp <- as.vector(unlist(ranef(fit3)))  #name not needed
+> fit3a <- coxme(Surv(time, status) ~ age + trt + (1|inst) + (trt|inst),
++                simdata, iter=0, vfixed=as.list(vtemp))
+> cfit <- coxph(Surv(time, status) ~ factor(inst) * trt + age, simdata,
++               iter=0, x=T)
+Warning message:
+In coxph(Surv(time, status) ~ factor(inst) * trt + age, simdata,  :
+  X matrix deemed to be singular; variable 9 20
+> dt3 <- coxph.detail(cfit)
+> u3 <- apply(dt3$score, 2, sum)
+> indx <- c(1:9, 12:20, 11, 10)
+> aeq(u3[indx], fit3a$u)
+[1] TRUE
+> imat2 <- apply(dt3$imat, 1:2, sum)[indx,indx] + 
++     diag(c(rep(1/vtemp, c(9,9)),0,0))
+> aeq(imat2, as.matrix(igchol(fit3a$hmat)))
+[1] TRUE
+> 
+> fit3b <- coxme(Surv(time, status) ~ age + trt + (trt|inst) +(1|inst),
++                simdata, iter=0, vfixed=as.list(rev(vtemp)))
+> aeq(fit3a$u, fit3b$u)
+[1] TRUE
+> aeq(fit3b$imat, fit3b$imat)
+[1] TRUE
+> 
+> #For sfit1
+> vtemp <- .0966
+> fit <- coxme(Surv(time, status) ~ age + trt + strata(inst) + (trt|inst),
++                simdata, iter=0, vfixed=vtemp)
+> cfit <- coxph(Surv(time, status) ~ factor(inst):trt + trt+ age+ strata(inst),
++               simdata, iter=0, x=T)
+Warning message:
+In coxph(Surv(time, status) ~ factor(inst):trt + trt + age + strata(inst),  :
+  X matrix deemed to be singular; variable 11
+> dt3 <- coxph.detail(cfit)
+> u3 <- apply(dt3$score, 2, sum)
+> indx <- c(3:11,2,1)
+> aeq(u3[indx], fit$u)
+[1] TRUE
+> 
+> imat3 <- apply(dt3$imat,1:2, sum)[indx,indx] + diag(c(rep(1/vtemp,9),0,0))
+> aeq(imat3, as.matrix(igchol(fit$hmat)))
+[1] TRUE
+> 
+> 

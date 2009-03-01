@@ -1,0 +1,329 @@
+\section{The model formula}
+\subsection{Introduction}
+The first version of [[coxme]] followed the [[lme]] convention of
+using separate formulas for the fixed and random portions of the
+model.
+This worked, but has a couple of limitations.
+First, it has always seemed clumsy and unintuitive.  
+A second more important issue is that it does not allow for
+variables that participate in both the fixed and random effects. 
+The new form is similar (but not identical) to the direction
+taken by the [[lmer]] project.  
+Here is a moderately complex example modivated by a multi-institutional
+study where we are concerned about possible different patient
+populations (and hence effects) in each enrolling institution.
+
+\begin{verbatim}
+   coxme(Surv(time, status) ~ age + (1+ age | institution) * strata(sex))
+\end{verbatim}
+This model has a fixed overall effect for age, along with random
+intercept and slope for each of the enrolling institutions.
+The study has a separate baseline hazard for males and females, along
+with an interaction between strata and the random effect.
+The fitted model will include separate estimates of the variance/covariance
+matrix of the random effects for the two genders.
+This is a type of model that could not be specified in the prior mode
+where fixed and random effects were in separate statements.
+
+
+\subsection{Parsing the formula}
+The next step is to decompose the formula into its component parts, 
+namely the fixed and the random effects.
+The standard formula manipulation tools in R are not up to this
+task; we do it ourselves using primarily two routines called,
+not surprisingly [[formula1]] and [[formula2]].  
+The first breaks the formula into fixed and random components,
+where the fixed component is a single formula and the random
+component may be a list of formulas if there is more than one
+random term.
+
+\begin{figure}
+\myfig{figtree1}
+\caption{The parse tree for [[y ~ x1 + (x3 + x4)* x2]].}
+\label{figtree1}
+\end{figure}
+
+Formulas in S are represented as a parse tree.  For example, consider
+the formula [[y ~ x1 + x2*(x3 + x4)]].
+It's tree is shown in figure \ref{figtree1}.
+At each level the figure lists the class of the object along with its name;
+to lessen crowding in the plot objects of class `name' do not have the class
+listed.
+The arguments to a call are the branched below each call.
+A formula is structured like a call to the ``\verb2~2'' operator, and a
+parenthesised expression like a call with a single argument.
+
+The [[formula1]] routine is called with the model formula,
+the response and the fixed parts are returned as the [[fixed]]
+component, the random parts are separated into a list.  
+The primary concern of this function is to
+separate out the random terms;
+by definition this is a parenthesised term whose first child in the
+parse tree is a call to the vertical bar function.
+A random term is separated from the rest of the equation by one of
+the four operators +, -, *, or :,
+thus the parsing routine only has to worry about those four,
+anything else can safely be lumped into the fixed part of the 
+equation.  
+
+We first deal with the top level call (the formula), and with
+parentheses.
+There are two cases.  In the first, we have by definition found
+a random effects term.  
+(The routine [[formula2]] will be used to check each random
+term for validity later).
+The second case is a random term found inside two sets of parentheses;
+this is redundant but legal.  By simply passing on the list from the 
+inner call the routine removes the extra set.
+
+<<formula>>=
+formula1 <- function(x) {
+    if (class(x)=='formula') {  #top level call
+        n <- length(x)  # 2 if there is no left hand side, 3 otherwise
+        temp <- formula1(x[[n]])
+        if (is.null(temp$fixed)) x[[n]] <- 1  # only a random term!
+        else x[[n]] <- temp$fixed
+        return(list(fixed=x, random=temp$random))
+        }
+    
+    if (class(x) == '(' ) {
+        if (class(x[[2]])== 'call' && x[[2]][[1]] == as.name('|')) {
+            return(list(random = list(x)))
+            }
+            
+        temp <- formula1(x[[2]])  # look inside the parenthesised object
+        if (is.null(temp$fixed)) return(temp) #doubly parenthesised random 
+        else {
+            # A random term was inside a set of parentheses, pluck it out
+            #  An example would be (age + (1|group))
+            if (length(temp$fixed) <= 2) x <- temp$fixed  #remove unneeded (
+            else      x[[2]] <- temp$fixed
+               return(list(fixed= x, random=temp$random))
+            }
+        }
+@ %$
+Next we deal with the four operators one by one, starting with ``+''.
+We know that this call has exactly two arguments; 
+the routine recurs on the left and then the right hand portions, and
+then merges the results.  
+The merger has to deal with 4 cases, the left term either did or did not
+have a fixed effect term, and the right either did or did not.  
+We re-paste the two fixed effect portions together.  
+The random terms are easier since they are lists, which concatonate
+properly even if one of them is null.
+<<formula>>=
+    if (class(x) == 'call' && x[[1]] == as.name('+')) {
+        temp1 <- formula1(x[[2]])
+        temp2 <- formula1(x[[3]])
+
+        if (is.null(temp1$fixed)) {
+            # The left-hand side of the '+' had no fixed terms
+            return(list(fixed=temp2$fixed, 
+                        random=c(temp1$random, temp2$random)))
+            }
+        else if (is.null(temp2$fixed)) # right had no fixed terms
+            return(list(fixed=temp1$fixed, 
+                        random=c(temp1$random, temp2$random)))
+        else {
+            return(list(fixed= call('+', temp1$fixed, temp2$fixed),
+                        random=c(temp1$random, temp2$random)))
+            }
+        }
+@  
+The code for ``-'' is identical except for one extra wrinkle: you cannot
+have a random term after a minus sign.
+Becase the expressions are parsed from left to right [[~ age-1 + (1|group)]]
+will be okay (though -1 makes no sense in a Cox model),
+but [[~ age - (1 + (1|group))]] will fail.  
+<<formula>>=
+    if (class(x)== 'call' && x[[1]] == as.name('-')) {
+        temp1 <- formula1(x[[2]])
+        temp2 <- formula1(x[[3]])
+        if (!is.null(temp2$random))
+            stop("You cannot have a random term after a - sign")
+
+        if (is.null(temp1$fixed))  #no fixed terms to the left
+            return(list(fixed=temp2$fixed, 
+                        random= temp1$random))
+        else {  #there must be fixed terms to the right
+            return(list(fixed= call('-', temp1$fixed, temp2$fixed),
+                        random= temp1$random))
+            }
+       }            
+@
+For the last line: we know there is something to the right of the '-', and
+it is not a naked random effects term, so it must be fixed.
+
+Interactions are a bit harder.  The model formula
+[[~ (age + (1|group))*sex]] for instance has an [[age*sex]] fixed term and
+a [[(1|group)*sex]] random term.  
+Interactions between random effects are not defined.
+I don't know what they would mean if they were \ldots.   %'
+<<formula>>=
+    if (class(x)== 'call' && (x[[1]] == '*' || x[[1]] == ':')) {
+        temp1 <- formula1(x[[2]])
+        temp2 <- formula1(x[[3]])
+
+        if (is.null(temp1$random) && is.null(temp2$random))
+            return(list(fixed=x))   # The simple case, no random terms
+
+        if (!is.null(temp1$random) && !is.null(temp2$random))
+                stop ("The interaction of two random terms is not defined")
+@ 
+Create the new ``fixed'' term.  In the case of [[(1|group):sex]], there is no
+fixed term in the result.  
+For [[(1|group) *sex]] the fixed term will be ``sex''.
+These are the two cases (and their mirror images) where only one of the left
+or right parts has a fixed portion.
+If both have a fixed portion then we glue them together.
+<<formula>>=
+        if (is.null(temp1$fixed) || is.null(temp2$fixed)) {
+            if (x[[1]] == ':') fixed <- NULL
+            else if (is.null(temp1$fixed)) fixed <- temp2$fixed
+            else fixed <- temp1$fixed
+            }
+        else  fixed <- call(deparse(x[[1]]), temp1$fixed, temp2$fixed)
+@
+% 
+Create the new random term.  The lapply is needed for
+[[(((1|group) + (1|region)) * sex]], i.e., there are multiple groups
+in the random list.
+I can't imagine anyone using this, but if I leave it out they surely %'
+will and confuse the parser.
+<<formula>>= 
+        if (is.null(temp2$random))  #left hand side was random
+            random <- lapply(temp1$random, 
+                             function(x,y) call(':', x, y), y=temp2$fixed)
+        else  #right side was
+            random = lapply(temp2$random,
+                                 function(x,y) call(':', x, y), y=temp1$fixed)
+
+        if (is.null(fixed)) return(list(random= random))
+        else return(list(fixed=fixed, random=random))
+        }
+@ 
+The last bit of the routine is for everything else, we treat it as a 
+fixed effects term.
+A possible addition would be look for any vertical bars, which by definition
+are not a part of a random term --- we've already checked for parentheses ---%'
+and issue an error message.  We do this instead in the parent routine.
+<<formula>>=
+    return(list(fixed=x))
+}
+@ 
+
+
+\subsection{Random terms}
+Each random term is subjected to further analysis using the
+[[formula2]] routine.  
+This has a lot of common code with [[formula1]], since they both
+walk a similar tree.  
+The second routine breaks a given random part into up to four parts,
+for example the result of [[(1 + age + weight | region):sex]]
+will be a list with elements:
+\begin{itemize}
+  \item [[intercept]]:  TRUE
+  \item [[variates]]: age + weight
+  \item [[group]]: region
+  \item [[interaction]]: sex
+\end{itemize}
+
+We can count on [[formula1]] to have put any interaction term on the
+far right, which means that it will be the first thing we encounter.
+<<formula>>=
+formula2 <- function(term) {
+    if (is.call(term) && term[[1]] == as.name(':')) {
+        interact <- term[[3]]
+        term <- term[[2]]
+        }
+    else interact <- NULL
+   
+    if (class(term) != '(' || !is.call(term[[2]]) || 
+                              term[[2]][[1]] != as.name('|')) 
+        stop("Formula error: Expected a random term") 
+
+    term <- term[[2]]  # move past the parenthesis
+    out <- list(intercept=findIntercept(term[[2]]))
+    out$group<- term[[3]]
+    out$interaction <- interact
+    out$fixed <- term[[2]]
+    out
+  }
+@ 
+
+This routine looks for an intercept term - that's all.
+It's easiest to use the built in [[terms]] function for this,
+since the intercept could be anywhere, and someone might have put
+in a -1 term which makes it trickier.   However, we can't: the   %'
+default S strategy would claim that [[(age+weight) |1)]] has an intercept.
+As an advantage, we know that there can be no operators except ``+''
+signs in the formula, or perhaps a ``-1''.  
+<<formula>>=
+findIntercept <- function(x) {
+   if (is.call(x)) {
+       if (x[[1]] == as.name('+')) findIntercept(x[[2]]) |findIntercept(x[[3]])
+       else FALSE
+       }
+   else if (x==1) TRUE
+        else FALSE
+}
+@ 
+
+\subsection{Miscellaneous}
+Here is the simple function to look for any vertical bars.
+You might think of recurring on any function with two arguments,
+e.g., [[if length(x)==3]] on the fourth line.  
+(The [[findbars]] routine in lmer, 3/2009, does this for instance, which
+shows that it must be a pretty sound idea, given the extensive use
+that code has seen.)
+However, that line would recur into other functions, like [[logb(x5, 2)]]
+for instance.  
+For instance the following is legal but has a vertical bar we wish to
+ignore: [[I(x1 | x2)]].
+I have never seen an \emph{actual} use of something like this,
+but nevertheless I'm taking the paranoid  %'
+route.  
+
+<<formula>>=
+hasAbar <- function(x) {
+  if (class(x)== 'call') {
+        if (x[[1]]== as.name('|')) return(TRUE)
+        else if (x[[1]]==as.name( '+') || x[[1]]== as.name('-') ||
+                 x[[1]]==as.name( '*') || x[[1]]== as.name(':'))
+	    return(hasAbar(x[[2]]) || hasAbar(x[[3]]))
+        else return(FALSE)
+        }
+    else if (class(x) == '(') return(hasAbar(x[[2]]))
+    else return(FALSE)
+    }
+@ 
+
+Here is a similar function which replaces each vertical bar with a '+'
+sign.  This is needed for the [[model.frame]] call, which does not
+properly deal with vertical bars. 
+Given a formula it returns a formula.
+We only recur on 4 standard operators to avoid looking inside functions. 
+An example would be [[~ age + I(x1 | x2) + (1|group)]].
+I'm not sure that replacing the bar inside the I() function will
+cause any problems for model.frame; so I may be being overly cautious.
+<<formula>>=
+subbar <- function(x) {
+    if (class(x)=='formula') x[[length(x)]] <- subbar(x[[length(x)]])
+    if (class(x)== 'call') {
+        if (x[[1]]==as.name( '+') || x[[1]]== as.name('-') ||
+            x[[1]]==as.name( '*') || x[[1]]== as.name(':')) {
+	    x[[2]] <- subbar(x[[2]])
+            x[[3]] <- subbar(x[[3]])
+            }
+        }
+    else if (class(x)== '(') {
+        if (class(x[[2]])== 'call' && x[[2]][[1]] == as.name('|')) 
+            x[[2]][[1]] <- as.name('+')
+        else x[[2]] <- subbar(x[[2]])
+        }
+    x
+    }
+   
+@ 
+    
+    

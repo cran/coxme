@@ -1,0 +1,136 @@
+\subsection{Basic setup}
+The [[coxme]] code start its model handling with a nod to backwards
+compatability.
+The argument list starts with the usual [[(formula, data, weights, ...]]
+set, but also allows [[random]] and [[fixed]] as optional arguments.
+If they are present, it assumes that someone is using the old style,
+and glues the fixed and random parts together into a single formula.
+Because the old form had [[fixed]] as its first argument, we also
+need to allow for the case where the user has assumed that the first,
+unnamed argument to the call, which now maps to the [[formula]]
+argument, is the fixed portion.
+
+The other change was that the old [[variance]] argument became [[vfixed]],
+and [[varlist]] became [[variance]]. 
+This set of names makes a lot mores sense for the user.  
+However, we immediately rename `variance' to `varlist'; in writing this
+intertwined code/document it is just too confusing to use the same word
+for both a statisical concept (variance of a random effect) and for
+a program object which can be many things.
+<<process-standard-arguments>>=
+if (!missing(fixed)) {
+    if (missing(formula)) {
+        formula <- fixed
+        warning("The 'fixed' argument of coxme is depreciated")
+        }
+    else stop("Both a fixed and a formula argument are present")
+    }
+if (!missing(random)) {
+    warning("The random argument of coxme is depreciated")
+    if (class(random) != 'formula' || length(random) !=2) 
+        stop("Invalid random formula")
+    j <- length(formula)   #will be 2 or 3, depending on if there is a y
+
+    # Add parens to the random formula and paste it on
+    formula[[j]] <- call('+', formula[[j]], call('(', random[[2]]))  
+    }
+
+if (!missing(variance)) {
+    warning("The variance argument of coxme is depreciated")
+    vfixed <- variance
+    }
+
+@
+A formula in S is represented as a list of length 2 or 3, whose first element
+is as.name('~'), then the left hand side, if present, then the right hand side.
+%Note that if the random statement is exceptionally long, then the [[deparse]]
+%command will produce a vector of charcter strings, one for each line of 
+%output if this were echoed to the terminal;
+%the [[paste(... ,collapse)]] construction rejoins these.
+Note that the old version of coxme contains almost the same code, since
+to correctly handle missing values it needed to retrieve all the
+relevant variables, both fixed and random, with a single list.
+
+The program then executes a fairly standard step to retrieve the model
+frame.  
+The model.frame function does not correctly handle vertical bars in
+a random term, the subbar function replaces each of these with a '+'.
+<<process-standard-arguments>>= 
+temp <- call('model.frame', formula= subbar(formula))
+for (i in c('data', 'subset', 'weights', 'na.action'))
+    if (!is.null(Call[[i]])) temp[[i]] <- Call[[i]]
+if (is.R()) m <- eval.parent(temp)
+else        m <- eval(temp, sys.parent())
+@ 
+The final line  is one of the few in the code that is specific to the
+particular S engine being used.
+
+One question that comes up when first seeing this code, is ``why not the
+simpler code''
+\begin{verbatim}
+    temp <- model.frame(formula, data=data, subset=subset, 
+                        weights=weights, na.action=na.action)
+\end{verbatim}
+The answer is that if any of the optional arguments were missing, then we would
+get an error.  
+What the code above does is to create the above call bit by bit. 
+The starting point only includes the [[formula]] argument, which is
+required.
+Then any optional arguments that are actually present are copied over
+from [[Call]] (what the user typed) to the temp variable.
+Many older S functions take a different approach by the way.  They first made
+a complete copy of the call, e.g. [[temp <- Call]], and then 
+remove arguments that they don't want
+[[temp$ties <- NULL; temp$rescale <- NULL]] etc.
+I don't like this approach, since every time that a new argument
+is added to the function, we need to remember to also add
+it to this x-out list.  
+Another alternate, found in much of the newer R code is
+\begin{verbatim}
+    alist <- match(names(Call), c('formula','data', 'subset', 'weights',
+                                  'na.action')
+    temp <- Call[c(1, which(!is.na(alist)))]
+    temp[[1]] <- as.name('model.frame')
+\end{verbatim}
+My code above automatically forces an error if the formula is missing.
+
+The model frame that we have created will contain all the variables found
+in both the fixed and random portions of the model.
+The next step is a usual one --- pull out special terms such as the response,
+offset, etc.
+Penalized terms are supported in [[coxph]] but are not allowed in [[coxme]]
+The most common penalized terms in [[coxph]] are frailty terms
+terms and psplines
+(smoothing splines, similar to generalized additive models).
+Frailty terms are simple shared random effects, 
+it was an early way to get some of
+the functionality of [[coxme]] by grafting a new capability onto [[coxph]].
+Pspline terms could be supported, in theory, in [[coxme]], but the
+effort to do so appears daunting and it is left for some future coder.
+
+<<process-standard-arguments>>=
+    Y <- model.extract(m, "response")
+    n <- nrow(Y)
+    if (!inherits(Y, "Surv")) stop("Response must be a survival object")
+    type <- attr(Y, "type")
+    if (type!='right' && type!='counting')
+	stop(paste("Cox model doesn't support '", type,
+			  "' survival data", sep=''))
+
+    weights <- model.weights(m)
+    if (length(weights) ==0) weights <- rep(1.0, n)
+    else if (any(weights <=0))
+        stop("Negative or zero weights are not allowed")
+
+    offset <- model.offset(m)
+    if (length(offset)==0) offset <- rep(0., n)
+
+    # Check for penalized terms; the most likely is pspline
+    pterms <- sapply(m, inherits, 'coxph.penalty')
+    if (any(pterms)) {
+	stop("You cannot have penalized terms in coxme")
+	}
+
+    if (missing(control)) control <- coxme.control(...)
+    if (missing(init)) init <- NULL
+@ 
