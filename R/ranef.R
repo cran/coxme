@@ -1,17 +1,5 @@
-ranef <- function(object, ...) {
-    UseMethod("ranef")
-    }
-random.effects <- function(object,...) {
-    UseMethod("ranef")
-    }
-
-fixef <- function(object, ...) {
-    UseMethod("fixef")
-    }
-fixed.effects <- function(object, ...) {
-    UseMethod("fixef")
-    }
-
+# Automatically generated from all.nw using noweb
+# The objects that do the actual work (not much work)
 fixef.coxme <- function(object, ...)
     object$coefficients$fixed
 

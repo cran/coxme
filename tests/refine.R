@@ -35,6 +35,7 @@ nsim <- 100
 var  <- .3   #sizeable
 
 set.seed(20)
+coxme.refine.debugswitch <- TRUE  
 fit1 <- coxme(Surv(time, status) ~ age + trt + (trt|inst) + strata(inst),
               vfixed=.3, simdata, refine.n=nsim)
 
@@ -47,7 +48,7 @@ if (!is.null(debug)) all.equal(bmat, debug$bmat)
 
 clog <- double(nsim)
 Xmat <- scale(as.matrix(simdata[,c('age', 'trt')]), fit1$means, FALSE)
-bmat <- bmat * sqrt(.3)  #the actual bmat used or fits, var=.3
+bmat <- bmat * sqrt(.3)  #the actual bmat used for fits, var=.3
 
 # Part 1, loglik for a set of nearby Cox models
 fix.lp <- Xmat %*% fixef(fit1)
@@ -64,20 +65,18 @@ b.sig <- t(bmat-bhat) %*% fit1$hmat[1:nfrail, 1:nfrail]  #b time sqrt(H)
 taylor <- rowSums(b.sig^2)/2
 
 temp2 <- cbind(clog, fit1$log[3] + colSums(bmat^2)/.6 - taylor)
-m2 <- mean(temp2)
+# In the coxme code, we center using the Laplace approx IPL (with error), but
+#  fit1 above reports the error corrected one.  So do another call without
+#  refinement to fetch it.
+fit2 <-  coxme(Surv(time, status) ~ age + trt + (trt|inst) + strata(inst),
+              vfixed=.3, simdata)
+
+m2 <- fit2$log[2]
 errhat <- exp(temp2[,1]-m2) - exp(temp2[,2]-m2)
-escale <- exp(m2-fit1$log[2])
 
 if (!is.null(debug)) {
     aeq(errhat, debug$errhat)
-    aeq(escale, debug$escale)
     }
 
-#Interestingly, even though both the above pass with standard tolerance,
-#  the one below will fail.  The escale variable is slightly different,
-#  since one is based on fit1$log[2] before correction (internal to coxme.fit)
-#  and the one here on the value after correction.
-aeq(escale * c(mean(errhat), sqrt(var(errhat)/nsim)), fit1$refine,
-    tolerance=1e-5)
-
+aeq(c(mean(errhat), sqrt(var(errhat)/nsim)), fit1$refine)
 

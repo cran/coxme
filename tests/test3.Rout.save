@@ -1,7 +1,8 @@
 
-R version 2.9.0 (2009-04-17)
-Copyright (C) 2009 The R Foundation for Statistical Computing
+R version 2.13.0 (2011-04-13)
+Copyright (C) 2011 The R Foundation for Statistical Computing
 ISBN 3-900051-07-0
+Platform: x86_64-unknown-linux-gnu (64-bit)
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
 You are welcome to redistribute it under certain conditions.
@@ -19,6 +20,7 @@ Type 'q()' to quit R.
 Loading required package: survival
 Loading required package: splines
 Loading required package: bdsmatrix
+Loading required package: nlme
 > options(na.action='na.exclude', contrasts=c('contr.treatment', 'contr.poly'))
 > aeq <- function(x,y) all.equal(as.vector(x), as.vector(y))
 > 
@@ -48,9 +50,6 @@ Loading required package: bdsmatrix
 > tfit <- coxph(Surv(time, status) ~ I(grp==2) + I(grp==3) +I(grp==4) + 
 +               I(grp==1) + x1 + x2,
 +               data=tdata1, x=T, weight=wt, iter=0, method='breslow')
-Warning message:
-In coxph(Surv(time, status) ~ I(grp == 2) + I(grp == 3) + I(grp ==  :
-  X matrix deemed to be singular; variable 4
 > dt0 <- coxph.detail(tfit)
 > aeq(apply(dt0$score,2,sum), fit0$u)
 [1] TRUE
@@ -99,9 +98,6 @@ In coxph(Surv(time, status) ~ I(grp == 2) + I(grp == 3) + I(grp ==  :
 > tfit <- coxph(Surv(time, status) ~ I(grp==2) + I(grp==3) +I(grp==4) + 
 +               I(grp==1) + x1 + x2,
 +               data=tdata1, x=T, weight=wt, iter=0)
-Warning message:
-In coxph(Surv(time, status) ~ I(grp == 2) + I(grp == 3) + I(grp ==  :
-  X matrix deemed to be singular; variable 4
 > dt0 <- coxph.detail(tfit)
 > aeq(apply(dt0$score,2,sum), fit0$u)
 [1] TRUE

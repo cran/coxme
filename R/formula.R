@@ -25,6 +25,7 @@ formula1 <- function(x) {
         }
     if (class(x) == 'call' && x[[1]] == as.name('+')) {
         temp1 <- formula1(x[[2]])
+        if (length(x)==2) return(temp1)  #no merge needed
         temp2 <- formula1(x[[3]])
 
         if (is.null(temp1$fixed)) {
@@ -42,6 +43,7 @@ formula1 <- function(x) {
         }
     if (class(x)== 'call' && x[[1]] == as.name('-')) {
         temp1 <- formula1(x[[2]])
+        if (length(x)==2) return(temp1)
         temp2 <- formula1(x[[3]])
         if (!is.null(temp2$random))
             stop("You cannot have a random term after a - sign")
@@ -56,6 +58,7 @@ formula1 <- function(x) {
        }            
     if (class(x)== 'call' && (x[[1]] == '*' || x[[1]] == ':')) {
         temp1 <- formula1(x[[2]])
+        if (length(x) ==2) return(temp1)
         temp2 <- formula1(x[[3]])
 
         if (is.null(temp1$random) && is.null(temp2$random))
@@ -120,11 +123,12 @@ hasAbar <- function(x) {
     }
 subbar <- function(x) {
     if (class(x)=='formula') x[[length(x)]] <- subbar(x[[length(x)]])
+
     if (class(x)== 'call') {
         if (x[[1]]==as.name( '+') || x[[1]]== as.name('-') ||
             x[[1]]==as.name( '*') || x[[1]]== as.name(':')) {
             x[[2]] <- subbar(x[[2]])
-            x[[3]] <- subbar(x[[3]])
+            if (length(x)==3) x[[3]] <- subbar(x[[3]])
             }
         }
     else if (class(x)== '(') {

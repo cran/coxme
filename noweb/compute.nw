@@ -1,0 +1,130 @@
+% -*- mode: Noweb; noweb-code-mode: c-mode -*-
+\section{Computation in C code}
+The underlying C code for the routine is separated into 4
+sections: setup the data, compute the solution for a
+fixed variance, iterative refinement, and final wrapup.
+For the second and fourth of these there is both a standard
+and (start, stop) version.
+A primary focus of the code's organization is to make the
+second of these routines as fast as possible; all of the other
+routines are called once, but the solution routine may be
+called several thousand times in the course of a solution.
+The first version of these routines were named coxfit6a,
+coxfit6b, etc.  The current ones that use [[imap]] and [[xmap]]
+constructs have coxfit7 for a prefix.
+
+Computation involves several temporary matrices and vectors;
+the setup routine allocates memory for all of these, copies and 
+sorts the data, and creates several derived variables.
+All of the results are kept in a \emph{static global} structure
+[[coxfit7]] which is shared by the routines.  The setup
+routine fills this and the final routine frees the memory.
+
+\subsection{Setup}
+The setup routine [[coxfit7a]] has the following input
+variables
+\begin{description}
+\item[y] the matrix of survival times.  There will be 3 columns for [start,stop]
+  data and 2 columns for standard survival data.
+\item[covar] the matrix of covariates
+\item[imap] the matrix that maps each observation to one or more intercept
+  coefficients.  One row for each subject, and one or more columns.  If there
+  are no intercept terms this will be of length 0.
+\item[xmap] the matrix that maps from the X matrix to coefficients; this is
+  used for random slopes.  The first column of xmap applies to the first
+  column of X, etc.  If xmap has fewer columns than X (the usual case),
+  then the remaining columns of X map to coefficients maxmap+1, maxmap+2 etc
+\item[nmap] the maximum coefficient referenced in imap or xmap
+\item[strata] sizes of the strata, cumulative
+\item[sort] sort order for the observations, last to first within strata.
+  For (start,stop) data this is a two column matrix, whose second column gives
+  the sort order for the start times.
+\item [offset] offset for the linear predictor
+\item[weights] case weights
+\item[eps] tolerance for convergence.  Iteration continues until
+                 the percent change in loglikelihood is <= eps.
+\item[tolerch] tolerance for the Cholesky routines
+\item[method]  0=Breslow, 1=Efron
+\item[bsize]: the blocksize slot of the penalty matrix
+\item[rsize]: the number of columns of the rmat portion of the penalty matrix 
+  associated with the random effects for the model.
+  Rsize will often be 0, e.g. for a model with random intercepts.
+\item[standard] which type of calculation: standard or alternate
+\end{description}
+
+<<coxfit7a>>=
+#include "coxmeS.h"
+#include "coxmeproto.h"
+/* the next line is just so that I can use "c7.n" instead of "coxfit7.n", etc*/
+#define c7 coxfit7  
+
+SEXP coxfit7a(SEXP y,      SEXP covar,   SEXP imap,   SEXP xmap,   SEXP nmap,
+	      SEXP strata, SEXP sort,    SEXP offset, SEXP weights,
+	      SEXP eps,    SEXP tolerch, SEXP method, 
+	      SEXP bsize,  SEXP rsize,   SEXP standard) {
+    int i,j,k, p1, p2, istrat;
+    int nsparse, fsize;
+    int nvar2, nvar3;
+    int nvar2b;
+    int n;
+    
+    double  temp, temp2;
+    double  ndead;
+    double  *dptr;
+    int *iptr;
+
+    n          = NROW(y);
+    c6.n       = n
+    c6.nvar    = NCOL(covar)
+    c6.method  = asInteger(method);
+    c6.tolerch = asREAL(tolerch);
+    c6.eps     = asREAL(eps);
+    c6.nblock  = LENGTH(bsize);
+    c6.offset  = REAL(PROTECT(offset)); 
+    c6.weights = REAL(PROTECT(weights));
+    c7.strata  = REAL(PROTECT(strata)); 
+    nsparse =0;  	/* number of random effects coefficients */
+    fsize  =0;          /* memory size of the block diagonal matrices */
+    if (c6.nblock >0)  { /* no sparse terms is a possibility*/
+	dprt = REAL(bsize)
+	for (i=0; i<c6.nblock; i++)
+	    nsparse += dptr[i];
+
+	c6.bsize = (int *) Calloc(c6.nblock + 2*nsparse, int);
+	c6.bstart= c6.bsize + c6.nblock;
+	c6.bstop  = c6.bstart + nsparse;
+	k=0; 
+	for (i=0; i<c6.nblock; i++) {
+	    c6.bsize[i] = dptr[i];
+	    fsize   += (dptr[i] * (1+dptr[i])) /2;
+	    for (j=0; j<c6.bsize[i]; j++) {
+		c6.bstart[k+j] =k;
+		c6.bstop[k+j] = k + c6.bsize[i];
+		}
+	    k += c6.bsize[i];
+	    }
+	c6.tblock = fsize;
+	}
+    else c6.tblock  =  0; 
+    c6.nsparse = nsparse;
+    c6.nfrail =  nsparse + asInteger(rsize);
+
+    c6.nfx = *fcol;
+    if (c6.nfx >0) {  /* there are factor variables: save fcol matrix */
+	c6.fx  = (int *) Calloc(c6.nfx *n, int);
+	c6.findex = (double *) Calloc(c6.nfx * c6.nfrail, double);
+	j =0;
+	for (i=0; i<(n * c6.nfx); i++)  if (fx[i] > j) j = fx[i];
+	c6.nfactor = j+1;  /* max number of levels for any factor */
+	for (i=0; i<(c6.nfx*c6.nfrail); i++) {
+	    c6.findex[i] = findex[i];  /* save findex matrix too */
+	    }
+	}
+    else c6.nfactor = 0;  /* No factor terms! */
+    
+    nvar3 = *nvar + c6.nfrail;      /* total number of coefficients */
+    nvar2 = nvar3 - c6.nfactor;     /* total columns in X matrix */
+    nvar2b= nvar3 - nsparse;        /* non-sparse columns in imat */
+
+    
+@ 

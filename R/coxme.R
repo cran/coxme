@@ -39,6 +39,7 @@ coxme <- function(formula,  data,
     else        m <- eval(temp, sys.parent())
         Y <- model.extract(m, "response")
         n <- nrow(Y)
+        if (n==0) stop("No observations remain in the data set")
         if (!inherits(Y, "Surv")) stop("Response must be a survival object")
         type <- attr(Y, "type")
         if (type!='right' && type!='counting')
@@ -139,6 +140,16 @@ coxme <- function(formula,  data,
             }
         }
         
+    sapply(varlist, function(x) {
+           fname <- c("initialize", "generate", "wrapup")
+           indx <- match(fname, names(x))
+           if (any(is.na(x)))
+               stop(paste("Member not found in variance function:",
+                          fname(is.na(indx))))
+           if (length(x) !=3 || any(!sapply(x, is.function)))
+               stop("Varlist objects must consist of exaclty three functions")
+       })
+
     getcmat <- function(x, mf) {
         if (is.null(x) || x==1) return(NULL)
         Terms <- terms(eval(call("~", x)))
@@ -147,7 +158,6 @@ coxme <- function(formula,  data,
         varnames <-  attr(Terms, 'term.labels')
         ftemp <- sapply(mf[varnames], is.factor)
         if (any(ftemp)) {
-            stop("Factors are not valid as a covariate within a random effect")
             clist <- lapply(mf[varnames[ftemp]], 
                             function(x) diag(length(levels(x))))
             model.matrix(Terms, mf, contrasts.arg =clist)
@@ -169,11 +179,14 @@ coxme <- function(formula,  data,
         }
     if (missing(vinit) || is.null(vinit)) vinit <- vector('list', nrandom)
     else {
-        if (nrandom==1 && is.numeric(vinit)) vinit <- list(vinit)
+        if (nrandom==1) {
+            if (is.numeric(vinit)) vinit <- list(vinit)
+            else if (is.list(vinit)) vinit <- list(unlist(vinit))
+        }
         if (!is.list(vinit)) stop("Invalid value for `vinit` parameter")
         if (length(vinit) > nrandom) 
             stop (paste("Vinit must be a list of length", nrandom))
-        if (!all(sapply(vinit, is.numeric))) 
+        if (!all(sapply(vinit, function(x) (is.null(x) || is.numeric(x))))) 
             stop("Vinit must contain numeric values") 
         
         if (length(vinit) < nrandom) 
@@ -189,13 +202,16 @@ coxme <- function(formula,  data,
 
     if (missing(vfixed) || is.null(vfixed)) vfixed <- vector('list', nrandom)
     else {
-        if (nrandom==1 && is.numeric(vfixed)) vfixed <- list(vfixed)
+        if (nrandom==1) {
+            if (is.numeric(vfixed)) vfixed <- list(vfixed)
+            else if (is.list(vfixed)) vfixed <- list(unlist(vfixed))
+        }
         if (!is.list(vfixed)) stop("Invalid value for `vfixed` parameter")
         if (length(vfixed) > nrandom) 
             stop (paste("Vfixed must be a list of length", nrandom))
-        if (!all(sapply(vfixed, is.numeric))) 
+        if (!all(sapply(vfixed,  function(x) (is.null(x) || is.numeric(x))))) 
             stop("Vfixed must contain numeric values") 
-        
+
         if (length(vfixed) < nrandom) 
             vfixed <- c(vfixed, vector('list', nrandom - length(vfixed)))
                        
@@ -246,7 +262,8 @@ coxme <- function(formula,  data,
                 stop(paste("In random term ", i,
                            ": intercept matrix has an invalid element", sep=''))
 
-            fmat <- cbind(fmat, ifun$imap)
+            if (ncol(fmat) >0) fmat <- cbind(fmat, ifun$imap + max(fmat))
+            else fmat <- ifun$imap
             ncoef[i,1] <- 1+ max(ifun$imap) - min(ifun$imap)
             }
 

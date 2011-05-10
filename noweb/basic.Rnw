@@ -10,13 +10,9 @@ need to allow for the case where the user has assumed that the first,
 unnamed argument to the call, which now maps to the [[formula]]
 argument, is the fixed portion.
 
-The other change was that the old [[variance]] argument became [[vfixed]],
-and [[varlist]] became [[variance]]. 
-This set of names makes a lot mores sense for the user.  
-However, we immediately rename `variance' to `varlist'; in writing this
-intertwined code/document it is just too confusing to use the same word
-for both a statisical concept (variance of a random effect) and for
-a program object which can be many things.
+The other change was that the old [[variance]] argument became [[vfixed]].
+This set of names makes a lot mores sense for the user as it is now
+in parallel with [[vinit]].
 <<process-standard-arguments>>=
 if (!missing(fixed)) {
     if (missing(formula)) {
@@ -111,6 +107,7 @@ effort to do so appears daunting and it is left for some future coder.
 <<process-standard-arguments>>=
     Y <- model.extract(m, "response")
     n <- nrow(Y)
+    if (n==0) stop("No observations remain in the data set")
     if (!inherits(Y, "Surv")) stop("Response must be a survival object")
     type <- attr(Y, "type")
     if (type!='right' && type!='counting')

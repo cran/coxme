@@ -1,5 +1,5 @@
 # Automatically generated from all.nw using noweb
-coxmeFull <- function(collapse=FALSE) {
+coxvarFull <- function(collapse=FALSE) {
     collapse <- collapse
     # Because of R's lexical scoping, the values of the options
     #  above, at the time the line below is run, are known to the
@@ -7,8 +7,6 @@ coxmeFull <- function(collapse=FALSE) {
     initialize <- function(vinit, fixed, intercept, G, X,  sparse) {
         ngroup <- min(length(G), ncol(G))
         nvar   <- min(length(X), ncol(X))  # a NULL or a nx0 matrix yields 0
-        vardefault <- c(.02, .1, .4, .8)^2
-        cordefault <- c(0, .3)
         initmatch <- function(namelist, init) {
             if (is.null(names(init))) iname <- rep('', length(init))
             else iname <- names(init)
@@ -34,12 +32,9 @@ coxmeFull <- function(collapse=FALSE) {
                   if (any(temp==0)) 
                       return(list(error=paste('Element', which(temp==0),
                                               'of initial values not matched')))
-                  else {
-                      if (vinit <=0) return(list(error="Invalid variance value, must be >0")) 
-                      theta <- vinit
-                      }
+                  else theta <- vinit
                   }
-                else theta <- vardefault *.5 / mean(sqrt(apply(X,2,var)))
+                else theta <- .2 / mean(sqrt(apply(X,2,var)))
                   
                 if (length(fixed) >0) {
                     temp <- initmatch(xname[1], fixed)
@@ -48,15 +43,15 @@ coxmeFull <- function(collapse=FALSE) {
                                                 'of fixed variance values not matched')))
                     else theta <- fixed
                     which.fixed <- TRUE
-                    if (theta <=0) return(list(error="Invalid variance value, must be >0"))
                     }
                 else which.fixed <- FALSE
+                if (theta <=0) return(list(error="Invalid variance value, must be >0"))
 
                 xmap <- matrix(0L, nrow=nrow(X), ncol=ncol(X))
                 for (i in 1:ncol(X)) xmap[,i] <- i
 
-                list(theta=list(log(theta))[!which.fixed], imap=NULL, X=X, xmap=xmap,
-                         parms=list(fixed=which.fixed, theta=theta[1],
+                list(theta=log(theta[!which.fixed]), imap=NULL, X=X, xmap=xmap,
+                         parms=list(fixed=which.fixed, theta=theta,
                                     xname=xname, case=1))
                 }
             }
@@ -64,25 +59,21 @@ coxmeFull <- function(collapse=FALSE) {
             if (nvar==0) {
                 gname <-  names(G)
                 ntheta <- length(gname)
-                itheta <- vector('list', length=ntheta)
-                for (i in 1:ntheta) itheta[[i]] <- vardefault
+                theta <- rep(.2, ntheta)
                 if (ntheta >1) {
                     for (i in 2:ntheta) gname[i] <- paste(gname[i-1], gname[i], sep='/')
                     gname <- rev(gname) 
                     }
-                names(itheta) <- gname
-
                 if (length(vinit) >0) {
                     temp <- initmatch(gname, vinit)
                     if (any(temp==0))
                         return(list(error=paste('Element', which(temp==0),
                                                 'of initial values not matched')))
-                    else itheta[temp] <- vinit
-                    if (any(unlist(vinit) <=0))
+                    else theta[temp] <- unlist(vinit)
+                    if (any(theta <=0))
                         return(list(error='Invalid initial value'))
                     }
 
-                theta <- rep(0, ntheta)   # the filler value does not matter
                 which.fixed <- rep(FALSE, ntheta)
                 if (length(fixed)>0) {
                     temp <- initmatch(gname, fixed)
@@ -121,7 +112,7 @@ coxmeFull <- function(collapse=FALSE) {
                 varlist <- list(vmat)
                 if (nvar==0) 
                     return(list(imap=imap, X=NULL, 
-                                theta=(lapply(itheta, log))[!which.fixed], 
+                                theta=log(theta[!which.fixed]), 
                                 parms=list(varlist=varlist, theta=theta, levellist=levellist,
                                            fixed=which.fixed, case=2, gname=gname)))
                     }
@@ -176,7 +167,7 @@ coxmeFull <- function(collapse=FALSE) {
 
                     if (nvar==0) {
                         return(list(imap=matrix(as.numeric(G[,1])), X=NULL, 
-                                    theta=lapply(itheta, log)[!which.fixed],
+                                    theta=log(theta[!which.fixed]),
                                     parms=list(varlist=varlist, theta=theta, 
                                                fixed=which.fixed, gname=names(G),
                                                levellist=levellist, case=3, collapse=TRUE)))
@@ -216,35 +207,21 @@ coxmeFull <- function(collapse=FALSE) {
 
                     if (nvar==0) 
                         return(list(imap=imap, X=NULL, 
-                                    theta=(lapply(itheta, log))[!which.fixed],
+                                    theta=log(theta[!which.fixed]),
                                     parms=list(nlevel=nlevel, varlist=varlist, gname=names(G),
                                                fixed=which.fixed, levellist=levellist, 
-                                               theta=theta, case=3, collapse=FALSE)))           
+                                               theta=theta, case=3, collapse=FALSE)))          
                     }
                 }
 
             #Deal with slopes
             if (nvar > 0) {
-                xvar  <- apply(X,2,var)
+                xstd  <- sqrt(apply(X,2,var))
+                xstd  <- rep(1, ncol(X))  #debug line
+                if (intercept) theta.temp <- diag(c(.2, .2/xstd))
+                else           theta.temp <- diag(.2/xstd, nvar, nvar) #might be 1x1 !
+                theta <- rep(theta.temp[row(theta.temp) >= col(theta.temp)], ngroup)
 
-                itheta <- list()
-                is.variance <- NULL
-                if (intercept) {
-                    itheta <- c(itheta, list(vardefault))
-                    for (i in 1:ncol(X)) itheta <- c(itheta, list(cordefault))  #correlations
-                    is.variance <- c(TRUE, rep(FALSE, ncol(X)))
-                    }
-                for (i in 1:ncol(X)) {
-                    itheta <- c(itheta, list(vardefault/xvar))  #variance
-                    if (i < ncol(X)) {
-                        for (j in (i+1):ncol(X))  itheta <- c(itheta, list(cordefault))
-                        is.variance <- c(is.variance, TRUE, rep(FALSE, ncol(X)-i))
-                        }
-                    else is.variance <- c(is.variance, TRUE)
-                    }
-                itheta <- rep(itheta, ngroup)
-                is.variance <- rep(is.variance, ngroup)    
-                    
                 xname <- dimnames(X)[[2]]
                 name.temp <- outer(xname, xname, paste, sep=":")
                 diag(name.temp) <- xname
@@ -257,23 +234,22 @@ coxmeFull <- function(collapse=FALSE) {
                                    paste(name.temp, gname[i], sep='/'))
                     else tname <- paste(name.temp, gname[i], sep='/')
                     }
-
-                # Now replace selected values with the user's input
+                        
                 if (length(vinit) > 0) {
                     temp <- initmatch(tname, vinit)
                     if (any(temp==0))
                         return(list(error=paste('Element(s)', which(temp==0),
                                                 'of initial values not matched')))
-                    else itheta[temp] <- unlist(vinit)
+                    else theta[temp] <- unlist(vinit)
                     }
-                              
-                which.fixed <- rep(FALSE, length(itheta))
+
+                which.fixed <- rep(FALSE, length(theta))
                 if (length(fixed) > 0) {
                     temp <- initmatch(tname, fixed)
                     if (any(temp==0))
                       return(list(error=paste('Element(s)', which(temp==0),
                                               'of fixed variance values not matched')))
-                    else itheta[temp] <- unlist(fixed)
+                    else theta[temp] <- unlist(fixed)
                     which.fixed[temp] <- TRUE
                     }
 
@@ -284,42 +260,42 @@ coxmeFull <- function(collapse=FALSE) {
                 cindx <- which(tmat==0)  #indices of the correlations
                 tempn <- length(tmat)   # number of parameters per level
 
-                if (any(unlist(itheta[is.variance]) <=0)) 
+                for (i in 1:ngroup) {
+                    offset <- (i-1)*tempn
+                    if (any(theta[offset + vindx] <=0)) 
                         return(list(error="Variances must be >0"))
-                if (any(unlist(itheta[!is.variance]) <=-1) || any(unlist(itheta[!is.variance]) >=1))
+                    if (intercept) theta[offset + vindx] <- theta[offset + vindx] * c(1, xstd)
+                    else           theta[offset + vindx] <- theta[offset + vindx] * xstd
+                    temp <- theta[offset + cindx]
+                    if (any(temp<=-1) || any(temp >=1))
                         return(list(error="Correlations must be between 0 and 1"))
+                    theta[offset + cindx] <- (1+temp) /(1-temp)                        
+                    }
                 xnew <- matrix(0., nrow=nrow(X), ncol=nvar*ncol(imap))
-                xmap <- matrix(0L, nrow=nrow(X), ncol=ncol(X)*ncol(imap))
+                xmap <- matrix(0L, nrow=nrow(X), ncol=ncol(xnew))
                 xoffset <- (intercept)* max(imap)
                 k <- 1
                 for (j in 1:nvar) {
                     for (i in 1:ncol(imap)) { 
-                        xnew[,k] <- X[,j]
+                        xnew[,k] <- X[,j]/xstd[j]
                         xmap[,k] <- imap[,i] + xoffset
                         k <- k+1
                         xoffset <- xoffset + max(imap)
                         }
                     }
 
-                # Transform correlations to (1+rho)/(1-rho) scale, which is used for the saved
-                #  parameters, and make a copy.  The initial parameters are then log transformed
-                itheta[!is.variance] <- lapply(itheta[!is.variance], function(rho) (1+rho)/(1-rho))
-                theta <- sapply(itheta, function(x) x[1])
-
-                itheta <- lapply(itheta, log)
-
                 if (intercept)
-                    list(theta=itheta[!which.fixed], imap=imap, X=xnew, xmap=xmap, 
+                    list(theta=log(theta[!which.fixed]), imap=imap, X=xnew, xmap=xmap, 
                              parms=list(theta=theta, fixed=which.fixed, 
                                         nlevel=nlevel, levellist=levellist,
                                         nvar=nvar, gname=names(G), varlist=varlist,
-                                        xname=dimnames(X)[[2]], intercept=intercept,
+                                        xstd=xstd, xname=dimnames(X)[[2]], intercept=intercept,
                                         xname=dimnames(X)[[2]], case=4, collapse=collapse))
-                else list(theta=itheta[!which.fixed], imap=NULL, X=xnew, xmap=xmap, 
+                else list(theta=log(theta[!which.fixed]), imap=NULL, X=xnew, xmap=xmap, 
                              parms=list(theta=theta, fixed=which.fixed, 
                                         nlevel=nlevel, levellist=levellist,
                                         nvar=nvar, gname=names(G), varlist=varlist,
-                                        xname=dimnames(X)[[2]], intercept=intercept,
+                                        xstd=xstd, xname=dimnames(X)[[2]], intercept=intercept,
                                         xname=dimnames(X)[[2]], case=4, collapse=collapse))
                 }
             }
@@ -330,7 +306,7 @@ coxmeFull <- function(collapse=FALSE) {
             exp(pmax(-36, pmin(36, newtheta)))
 
         if (parms$case==1) return(diag(length(parms$xname)) * theta)
-
+        
         if (parms$case==2) return(theta*parms$varlist[[1]])
         if (parms$case==3) {
             temp <- theta[1]* parms$varlist[[1]]
@@ -460,29 +436,32 @@ coxmeFull <- function(collapse=FALSE) {
             names(random) <- parms$gname
             if (intercept) {
                 colname <- c("Intercept", parms$xname)
+                rescale <- c(1, 1/parms$xstd)
                 }
             else {
                 colname <- parms$xname
+                rescale <- 1/parms$xstd
                 }
 
             for (i in 1:ngroup) {
                 temp<- matrix(random[[i]], ncol=length(colname))
-                random[[i]] <- temp 
+                random[[i]] <- temp %*% diag(rescale, ncol(temp))
                 dimnames(random[[i]]) <- list(parms$levellist[[i]], colname)
                 }
             
             # Deal with theta
-            tfun <- function(x, n= 1 + nvar) {
+            tfun <- function(x, n= 1 + nvar, scale=rescale) {
                 tmat <- matrix(0., n, n)
                 tmat[row(tmat) >= col(tmat)] <- x
                 offdiag <- row(tmat) > col(tmat)
                 tmat[offdiag] <- (tmat[offdiag]-1)/(tmat[offdiag]+1)
+                diag(tmat) <- diag(tmat) * scale^2
                 dimnames(tmat) <- list(colname, colname)
                 tmat + t(tmat) - diag(diag(tmat))
                 }
             parms.per.group <- length(newtheta)/ngroup
             if (parms.per.group==1) { #nvar=1, intercept=F case
-                theta <- as.list(newtheta)
+                theta <- as.list(newtheta/parms$xstd)
                 theta <- lapply(theta, function(x) {names(x)<- parms$xname; x})
                 names(theta) <- parms$gname
                 }
@@ -497,6 +476,6 @@ coxmeFull <- function(collapse=FALSE) {
             }
         }
     out <- list(initialize=initialize, generate=generate, wrapup=wrapup)
-    oldClass(out) <- 'coxmevar'
+    oldClass(out) <- 'coxvar'
     out
     }

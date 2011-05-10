@@ -243,4 +243,4 @@ vtemp <- ranef(fita)[[1]][c(1,4,2)]
 fitc2 <- coxme(Surv(time, status) ~ age + trt + (1|inst/trt), simdata,
               vfixed=vtemp, varlist=myvar(list(mat1, mat2, mat3)))
 aeq(unlist(fita$frail),  map[1:18, 1:18] %*% unlist(fitc2$frail), tol=1e5)
-aeq(fitc2$log, fita$log, tol=1e-6)
+aeq(fitc2$log, fita$log, tol=1e-5)

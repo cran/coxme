@@ -106,14 +106,18 @@ Next we deal with the four operators one by one, starting with ``+''.
 We know that this call has exactly two arguments; 
 the routine recurs on the left and then the right hand portions, and
 then merges the results.  
-The merger has to deal with 4 cases, the left term either did or did not
-have a fixed effect term, and the right either did or did not.  
+The merger has to deal with 5 cases, the left term either did or did not
+have a fixed effect term, and the right arm either does not exist, exists
+and does not have a random effect, or exists without a random effect.
+The first case arises when someone accidentally has an extra sign such
+as [[age + + sex + (1|grp)]]; easy to do on a multi-line formula.
 We re-paste the two fixed effect portions together.  
 The random terms are easier since they are lists, which concatonate
 properly even if one of them is null.
 <<formula>>=
     if (class(x) == 'call' && x[[1]] == as.name('+')) {
         temp1 <- formula1(x[[2]])
+        if (length(x)==2) return(temp1)  #no merge needed
         temp2 <- formula1(x[[3]])
 
         if (is.null(temp1$fixed)) {
@@ -138,6 +142,7 @@ but [[~ age - (1 + (1|group))]] will fail.
 <<formula>>=
     if (class(x)== 'call' && x[[1]] == as.name('-')) {
         temp1 <- formula1(x[[2]])
+        if (length(x)==2) return(temp1)
         temp2 <- formula1(x[[3]])
         if (!is.null(temp2$random))
             stop("You cannot have a random term after a - sign")
@@ -162,6 +167,7 @@ I don't know what they would mean if they were \ldots.   %'
 <<formula>>=
     if (class(x)== 'call' && (x[[1]] == '*' || x[[1]] == ':')) {
         temp1 <- formula1(x[[2]])
+        if (length(x) ==2) return(temp1)
         temp2 <- formula1(x[[3]])
 
         if (is.null(temp1$random) && is.null(temp2$random))
@@ -303,17 +309,22 @@ sign.  This is needed for the [[model.frame]] call, which does not
 properly deal with vertical bars. 
 Given a formula it returns a formula.
 We only recur on 4 standard operators to avoid looking inside functions. 
-An example would be [[~ age + I(x1 | x2) + (1|group)]].
-I'm not sure that replacing the bar inside the I() function will
+An example would be [[~ age + I(x1 | x2) + (1|group)]]; we take care not to
+look inside the [[I()]], or an ns() call, etc.
+I'm not sure that replacing the bar inside the I() function will            %'
 cause any problems for model.frame; so I may be being overly cautious.
+The [[if length(x)]] statement below will most often arise from a formula 
+with two + signs in a row.  The second one is treated as unary so only has
+a single argument.
 <<formula>>=
 subbar <- function(x) {
     if (class(x)=='formula') x[[length(x)]] <- subbar(x[[length(x)]])
+
     if (class(x)== 'call') {
         if (x[[1]]==as.name( '+') || x[[1]]== as.name('-') ||
             x[[1]]==as.name( '*') || x[[1]]== as.name(':')) {
 	    x[[2]] <- subbar(x[[2]])
-            x[[3]] <- subbar(x[[3]])
+            if (length(x)==3) x[[3]] <- subbar(x[[3]])
             }
         }
     else if (class(x)== '(') {

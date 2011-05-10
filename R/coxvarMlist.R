@@ -1,5 +1,5 @@
 # Automatically generated from all.nw using noweb
-coxmeMlist <- function(varlist, rescale=TRUE, pdcheck=TRUE,  positive=TRUE) {
+coxvarMlist <- function(varlist, rescale=TRUE, pdcheck=TRUE,  positive=TRUE) {
     # Because of environments, the init function will inherit the
     #  four variables below 
     varlist <- varlist
@@ -8,7 +8,6 @@ coxmeMlist <- function(varlist, rescale=TRUE, pdcheck=TRUE,  positive=TRUE) {
     if (!is.logical(positive)) stop("Invalid value for postive argument")
     positive <- positive
     initialize <- function(vinit, fixed, intercept, G, X, sparse) {
-        vardefault <- c(.02, .1, .4, .8)^2
         ngroup <- min(length(G), ncol(G))
         nvar   <- min(length(X), ncol(X))  # a NULL or a nx0 matrix yields 0
         if (ngroup >0 & nvar >0)
@@ -48,15 +47,12 @@ coxmeMlist <- function(varlist, rescale=TRUE, pdcheck=TRUE,  positive=TRUE) {
             }
 
         ntheta <- length(varlist)
-        fudge <- seq(1, 1.5, length=ntheta)
-        itheta <- vector('list', ntheta)
-        for (i in 1:ntheta) itheta[[i]] <- vardefault * fudge[i]
-
+        theta <- seq(.2, .3, length=ntheta)
         if (length(vinit) >0) {
             if (length(vinit) != ntheta)
                 return(list(error="Wrong length for initial values"))
             indx <- !is.na(vinit) & vinit !=0  #which to use
-            if (any(indx)) itheta[indx] <- vinit[indx]
+            if (any(indx)) theta[indx] <- vinit[indx]
             }
 
         which.fixed <- rep(FALSE, ntheta)
@@ -65,7 +61,7 @@ coxmeMlist <- function(varlist, rescale=TRUE, pdcheck=TRUE,  positive=TRUE) {
                 return(list(error="Wrong length for fixed values"))
             indx <- !is.na(fixed) & fixed !=0  #which to use
             if (any(indx)) {
-                itheta[indx] <- fixed[indx]
+                theta[indx] <- fixed[indx]
                 which.fixed[indx] <- TRUE
                 }
             }
@@ -73,9 +69,9 @@ coxmeMlist <- function(varlist, rescale=TRUE, pdcheck=TRUE,  positive=TRUE) {
         if (length(positive)==1) positive <- rep(positive, ntheta)
         if (length(positive) != ntheta)
             return(list(error="Wrong length for positive parameter"))
-        if (any(unlist(itheta[positive]) <=0))
+        if (any(positive & theta <=0))
             return(list(error="Invalid initial value, must be positive"))        
-        itheta[positive] <- lapply(itheta[positive], log)    
+        theta[positive] <- log(theta[positive])    
         for (j in 1:ntheta) {
             kmat <- tlist[[j]]
             if (rescale) {
@@ -91,16 +87,12 @@ coxmeMlist <- function(varlist, rescale=TRUE, pdcheck=TRUE,  positive=TRUE) {
                 }
             if (pdcheck) {
                 temp <- gchol(kmat)
-                if (any(diag(temp) < 0))
+                if (any(diag(temp) < 0))        
                     return(list(error="A variance matrix is not non-negative definite"))
                 }
             }
 
-        # itheta is a list with vectors of initial values
-        # theta is a vector, and only the fixed values need to be correct (the others
-        #  are replaced by the parent routine).  All fixed "inits" are of length 1.
-        theta <- sapply(itheta, function(x) x[1])    
-        list(theta=itheta[!which.fixed], imap=imap, X=X, xmap=xmap,
+        list(theta=theta[!which.fixed], imap=imap, X=X, xmap=xmap,
              parms=list(varlist=tlist, theta=theta, fixed=which.fixed,
                         bname=bname, rname=rname, positive=positive,
                         vname=names(varlist)))
@@ -108,9 +100,9 @@ coxmeMlist <- function(varlist, rescale=TRUE, pdcheck=TRUE,  positive=TRUE) {
      generate <- function(newtheta, parms) {
          theta <- parms$theta
          theta[!parms$fixed] <- newtheta
-         if (any(parms$positive)) theta[parms$positive] <- 
-              exp(pmax(-36, pmin(36, theta[parms$positive])))
-
+         if (length(newtheta) >0) theta[parms$positive] <- 
+              exp(pmax(-36, pmax(36, theta[parms$positive])))
+         
          varmat <- parms$varlist[[1]] * theta[1]
          if (length(theta) >1) {
              for (i in 2:length(theta)) {
@@ -141,6 +133,6 @@ coxmeMlist <- function(varlist, rescale=TRUE, pdcheck=TRUE,  positive=TRUE) {
             list(theta=theta, b=b)
             }
     out <- list(initialize=initialize, generate=generate, wrapup=wrapup)
-    class(out) <- 'coxmevar'
+    class(out) <- 'coxvar'
     out
     }

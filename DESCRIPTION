@@ -2,9 +2,9 @@ Title: Mixed Effects Cox Models.
 Maintainer: Terry Therneau <terry.therneau@mayo.edu>
 Priority: optional
 Package: coxme
-Version: 2.0
-Date: 2009-03-01
-Depends: survival, bdsmatrix, R (>= 2.0.0)
+Version: 2.1-1
+Date: 2011-5-10
+Depends: survival, bdsmatrix, nlme, R (>= 2.12.0)
 LinkingTo: bdsmatrix
 LazyData: Yes
 LazyLoad: Yes
@@ -13,6 +13,6 @@ Description: Cox proportional hazards models containing Gaussian random
         effects, also known as frailty models.
 License: GPL-2
 URL: http://r-forge.r-project.org
-Packaged: 2009-09-14 11:04:31 UTC; therneau
+Packaged: 2011-05-13 19:35:52 UTC; therneau
 Repository: CRAN
-Date/Publication: 2009-09-20 20:07:34
+Date/Publication: 2011-05-15 07:29:27

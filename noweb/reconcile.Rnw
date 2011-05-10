@@ -1,0 +1,240 @@
+\section{Matrix reconcile}
+When a random effect has two (or more) variance terms involved, then
+  we have to ensure that they can be put into the same order.  That is,
+  identical dimnames and blocksize.  
+With bdsmatrices, this isn't always so trivial, since they cannot be
+  arbitrarily reordered.  This routine does the checking, and then if
+  possible reorders them.
+This is a simplification of the [[bdsmatrix.reconcile]] routine from
+the [[bdsmatrix]] library; there are three major changes.
+\begin{itemize}
+\item It is known a-priori that the input will be either a single 
+matrix or a list of matrices, no lists of lists which the other routine
+had to handle. 
+\item We need to ensure that if the input is an ordinary matrices, that
+the output also consists of such.
+\item If the matrices have no dimnames \emph{but} they are all of exactly
+  the right size, then we let the input pass.  Not necessarily the safest
+  idea, but much easier for the users.  If there are multiple matrices
+  they either all have to have dimnames or none should.
+\end{itemize}
+
+The input is a variance list, and a set of names for the random effects
+coefficients $b$.  All of the elements of $b$ must be accounted for.
+The first two errors below are impossible (I believe) since prior code has
+already checked, but it never hurts to look again.
+Most of the other errors will be dumb user mistakes that we want to
+catch early and give a good message for.
+
+<<matrix.reconcile>>= 
+matrix.reconcile <- function(varlist, bname) {
+    ismat <- function(x) class(x) %in% c('matrix', 'bdsmatrix')
+    msize <- length(bname)
+    #the final size of our matrices
+    if(any(duplicated(bname))) 
+        stop("The list of random coefficient names (bname) has duplicates")
+
+    # If a single matrix was passed make it a list
+    if (ismat(varlist)) varlist <- list(varlist)
+
+    nmat <- length(varlist)
+    has.dimnames <- is.bdsmat <- logical(nmat)
+    dims <- integer(nmat)
+    for (i in 1:nmat) {
+        tmat <- varlist[[i]]
+        if (!ismat(tmat))
+            return(list(error="Matrix list has a non-matrix"))
+        dd <- dim(tmat)
+        if (dd[1] != dd[2])
+            return(list(error="Non-square matrix"))
+        dims[i] <- dd[1]
+        dd <- dimnames(tmat)
+        if (!is.null(dd)) {
+            if (length(dd[[1]]) != length(dd[[2]]))
+                return(list(error="Both rows and cols must be named"))
+            if (any(dd[[1]] != dd[[2]]))
+                return(list(error="Row/col dimnames disagree"))
+            has.dimnames[i] <- TRUE
+            }
+        if (inherits(tmat, 'bdsmatrix') && length(tmat@blocksize >0)) 
+            is.bdsmat[i] <- TRUE
+        }
+    if (any(has.dimnames) && !all(has.dimnames))
+        return(list(error='All matrices must have dimnames, or none'))
+    if (any(dims != dims[1]))
+        return(list(error="Matrices in a list must have the same dimension"))
+
+    if (any(has.dimnames)) {
+        <<reconcile-thin>>
+        }
+    else {
+        <<reconcile-adddim>>
+        }
+
+    if (any(!is.bdsmat)) {
+        varlist <- lapply(varlist, as.matrix)
+        for (i in 1:nmat) {
+            indx <- match(dimnames(varlist[[i]])[[1]], bname)
+            if (any(indx != 1:dims[1])) 
+                varlist[[i]] <- (varlist[[i]])[indx, indx]
+            }
+        }
+    else {
+        <<reconcile-shape>>
+        }
+    varlist
+    }
+@ 
+
+When there are no dimnames.  We assume that the
+matrices are all in the right order, all in the same order,
+and that it is the order found in the bname vector.
+We still may need to reconcile block structure.
+<<reconcile-adddim>>=
+if (length(bname) != dims[1])
+    return(list(error="Matrix dimension does not match coefficient length"))
+for (i in 1:nmat)
+    dimnames(varlist[[i]]) <- list(bname, bname)
+@ 
+
+If there are dimnames, the first task is to thin the matrices:
+remove any row/cols that don't appear in the [[bname]] list.
+If any coefs in [[bname]] do not appear in the matrix it is an error.
+<<reconcile-thin>>=
+for (i in 1:nmat) {
+    dd <- dimnames(varlist[[i]])[[1]]
+    indx <- match(bname, dd, nomatch=0)
+    if (any(indx==0)) {
+        #put at most 4 in the error message
+        indx <- which(indx==0)
+        indx <- indx[1:(min(4, length(indx)))]
+        return(list(error=paste("Random coefficient(s)", 
+                                paste(bname[indx], collapse=' '),
+                                "does not appear in a variance matrix")))
+        }
+    indx <- match(dd, bname, nomatch=0)
+    if (any(indx==0)) varlist[[i]] <- (varlist[[i]])[indx>0, indx>0]
+    }
+@ 
+
+The last task is the hardest one, which is to optimally reorder all the
+matrices.  This may need to be done even if the input matrices had no
+dimnames, if more than one is a bdsmatrix.
+\begin{itemize}
+\item If there are bdsmatrices in the list we want to respect their structure
+  since they can only reorder in certain ways and remain sparse.
+  Presumably the user wanted them sparse for a reason.
+\item  If the list we pass back has more than one bdsmatrix, they
+must all have exactly the same block structure or they won't add nicely.
+\item The matrix with the lowest sparsity (details below) wins this contest. 
+One consequence is that if there are any ordinary matrices,everything 
+becomes an ordinary matrix.  This case was already addressed above.
+\end{itemize}
+
+To reconcile, we walk through the list and decide which is the ``master''
+bdsmatrix.  The bdsmatrix $A$ dominates matrix $B$ if
+\begin{enumerate}
+  \item The rmat portion of $A$ includes all of the rmat portion of $B$. 
+    The code below is less sophisticated, and only allows the rmat portions
+    to be identical (exactly the same col names), or for $B$ to be null.
+  \item After assigning relevant columns to the rmat portion (if present),
+    each unique block in $B$ is contained within a single block in $A$.
+    The algorithm for this is to number the rows of $B$ by their block, e.g.,
+    1,1,1,1, 2,2,2, 3,3,\ldots, reorder that list to match the dimnames of $A$,
+    and then see how many unique $A$ block numbers show up within each level
+    of $B$.  If it is all ones, $A$ contains $B$.
+\end{enumerate}
+In the code below everything after ``reshape it'' is stolen from an earlier 
+cryptic (but working) routine.
+<<reconcile-shape>>= 
+contains <- function(m1, m2) {
+    d1 <- dimnames(m1)[[1]]
+    d2 <- dimnames(m2)[[1]]
+    if (length(m2@rmat) >0) {
+        if (length(m1@rmat)==0 || ncol(m2@rmat) != ncol(m1@rmat)) return(FALSE)
+        indx <- seq(to=ncol(m1), length=ncol(m1@rmat))
+        if (any(is.na(match(d1[indx], d2[indx])))) return(FALSE)
+        }
+    b1 <- rep(1:length(m1@blocksize), m1@blocksize)
+    b2 <- rep(1:length(m2@blocksize), m2@blocksize)
+    if (length(m1@rmat)>0) {
+        indx <- seq(to=ncol(m1), length=ncol(m1@rmat)) 
+        d1 <- d1[-indx]
+        }
+    b2 <- b2[match(d2, d1, nomatch=0)] # reorder and drop any rmat cols
+    if (any(tapply(b1, b2, function(x) length(unique(x))) >1)) FALSE
+    else TRUE
+    }
+
+if (nmat > 1) {
+    master <- varlist[[1]]  #starting assumption: matrix 1 'wins'
+    for(i in 2:length(varlist)) {
+        if (contains(varlist[[i]], master)) master <- varlist[[i]]
+        else if (!contains(master, varlist[[i]]))
+            return(list(error=paste("Two variance matrices have",
+                                    "incompatable structure")))
+            }
+    bname <- dimnames(master)[[1]]
+    rcol  <- ncol(master@rmat)
+    blocks <- master@blocksize
+    #
+    # Now "bname" is in the right order, and all matrices can be
+    #   made to conform to it.  Make it so.
+    # The "hash1" index contains the indexing for the blocks of
+    #   the master matrix that we are creating.
+    bsize <- sum(blocks * (blocks + 1))/2
+    brow <- .C("bdsmatrix_index2",
+                   as.integer(length(blocks)),
+                   as.integer(blocks),
+                   rows = integer(bsize),
+                   cols = integer(bsize))
+    hash1 <- (brow$rows - 1) * msize + brow$cols
+    for(i in 1:length(varlist)) {
+        kmat <- varlist[[i]]
+        kid <- dimnames(kmat)[[1]]
+        indx <- match(kid, bname)
+        if(any(indx != 1:length(indx))) kmat <- kmat[indx, indx]
+ 
+        if (length(kmat@blocksize) != length(blocks) ||
+               any(kmat@blocksize != blocks)) {
+
+            # I need to reshape it
+            bb <- kmat@blocksize
+            bsize <- sum((bb * (bb + 1))/2)
+            temp <- .C("bdsmatrix_index2",
+                       as.integer(length(bb)),
+                       as.integer(bb),
+                       rows = integer(bsize),
+                       cols = integer(bsize))
+            newrow <- indx[temp$rows]
+            newcol <- indx[temp$cols]
+            hash2 <- (pmax(newrow, newcol) - 1) * msize + 
+                         pmin(newrow, newcol)
+            indx <- match(hash1, hash2, nomatch = 0)
+
+            if(rcol > 0 && length(kmat@rmat)==0) {
+                # The parent we are matching has an rmat, kmat does not
+                # hash3 will be the hash index for rmat
+                first <- (msize - rcol)
+                newrow <- rep(1:msize, rcol)
+                newcol <- rep(first + 1:rcol, rep(msize, rcol))
+                hash3 <- (pmax(newrow, newcol) - 1) * msize +
+                               pmin(newrow, newcol)
+                indx2 <- match(hash3, hash2, nomatch = 0)
+                kmat <- bdsmatrix(blocksize = blocks, 
+                                  blocks = c(0, kmat@blocks)[indx + 1],
+                                  rmat = matrix(c(0, kmat@blocks)[indx2 + 1],
+                                         ncol = rcol), 
+                                  dimnames = list(bname, bname))
+                }
+            else {
+                kmat@blocksize <- blocks
+                kmat@blocks <- (c(0, kmat@blocks))[1 + indx]
+                kmat@Dimnames <- list(bname, bname)
+                }
+            varlist[[i]] <- kmat
+            }
+	}
+    }
+@
+

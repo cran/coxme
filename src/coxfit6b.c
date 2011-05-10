@@ -1,4 +1,3 @@
-/* $Id: coxfit6b.c,v 1.8 2003/10/20 12:40:49 therneau Exp $ */
 /*
 ** This call is used for iteration
 **   It assumes a fixed penalty matrix, stored as a bdsmatrix of course

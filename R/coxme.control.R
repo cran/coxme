@@ -5,7 +5,7 @@
 coxme.control <- function(eps=1e-8, 
                           toler.chol = .Machine$double.eps ^ .75, 
                           iter.max =20,
-			  inner.iter=5,
+			  inner.iter=Quote(max(4, fit0$iter+1)),
 			  sparse.calc=NULL,
                           optpar=list(method='BFGS', 
                                       control=list(reltol=1e-5))) {

@@ -11,7 +11,7 @@
 
 \noweboptions{breakcode}
 \title{The \emph{coxme} function in S}
-\author{Terry Therneau}
+\author{Terry Therneau // Mayo Clinic}
 
 \begin{document}
 \maketitle
@@ -99,7 +99,7 @@ point in the future.
 The [[sparse]] option requires some further discussion.
 Cox model variance matrices are never sparse, but we have found that
 in one very particular instance we can ignore many off-diagonal
-5elements.  This combined with the naturally sparse structure of
+elements.  This combined with the naturally sparse structure of
 the penalty matrix can lead to substantial reductions in
 computational time.  
 The ignorable elements arise for a random intercept term.  In this case

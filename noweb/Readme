@@ -1,4 +1,4 @@
- Some portions of the coxme package have been written using the literate
+ Major portions of the coxme package have been written using the literate
 programming paradym.  These are contained here, and have a .Rnw suffix.
 Long term, the plan is to have all of the code source here to maximize
 the documentation, and through it the reliability of the package.
@@ -11,15 +11,24 @@ code from scattered fragments.  The latter is one of the main advantages
 of the noweb system: you can organise the presentation for optimal explanation
 rather than in exectuion order.
 
+The .Rnw suffix causes emacs work perfectly for either a noweb or Sweave 
+target, however, which is very nice.
+
+We also include a file noweb.R, derived from noweb.Rnw of course, which is
+an R implementation of the notangle function.  This allows the code to
+be self contained.  There are plans to merge this functionality into
+Rtangle one day so the file will hopefully become obsolete.  I have not
+as yet implemented the noweave function; the Makefile target
+all.pdf is the only one that requires it.
+
 The result file all.pdf is documentation for understanding the code, 
 not how to use the coxme function for data analysis.  For those who
 maintain the code it should be a big help, for everyone else I'd bet on
 "deathly boring".  
 
-It would be nice if Rtangle could be used to extract the code since that would
-make the library self contained for compilation purposes.  Que sera sera.
+The noweb.R and all.pdf files are logged in svn, in spite of the general rule
+against maintaining both a source (e.g., noweb.Rnw) and a result (e.g.,noweb.R),
+since not many users will have the noweb software installed.
 
-The .Rnw suffix causes emacs work perfectly for either a noweb or Sweave 
-target, however, which is very nice.
 
 	Terry Therneau

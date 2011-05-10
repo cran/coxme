@@ -1,4 +1,3 @@
-/* $Id $ */
 /*
 ** This call is for the monte carlo computation of the error in the
 **   Laplace transform estimate.  The basic input is an estimate 
@@ -9,6 +8,7 @@
 **   
 **    Input
 ** beta         : vector of coefficients, random first, then others
+**                 this is used for the fixed effect
 ** bhat         : matrix of trial values for the random coefficients
 **
 **    Output
@@ -59,7 +59,7 @@ void coxfit6d(Sint *nrefine,  double *beta,  double *bhat,
 		}
 	    /*
 	    ** Form the linear predictor zbeta, and the risk score
-	    **   For the sparse coefs use bhat, and beta for the others
+	    **   For the random coefs use bhat, and beta for the others
 	    */
 	    zbeta = c6.offset[p];
 	    for (i=0; i<c6.nfx; i++) {
@@ -67,9 +67,9 @@ void coxfit6d(Sint *nrefine,  double *beta,  double *bhat,
 		zbeta = zbeta + bhat[j];
 		}
 	    for (i=0; i<nfns; i++)
-		zbeta += bhat[i] * c6.x[i][p];
+		zbeta += bhat[i+nfac] * c6.x[i][p];  /* note bhat here*/
 	    for (i=nfns; i<nvar2; i++)
-		zbeta += beta[i+nfac]* c6.x[i][p];
+		zbeta += beta[i+nfac]* c6.x[i][p];   /* and beta here */
 	    risk = exp(zbeta) * c6.weights[p];
 	    denom += risk;
 

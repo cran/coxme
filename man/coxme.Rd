@@ -80,7 +80,13 @@ refine.n = 0, random, fixed, variance, ...)
 An object of class \code{coxme}.
 }
 \references{
-Ripatti, Therneau
+S Ripatti and J Palmgren, Estimation of multivariate frailty 
+models using penalized partial likelihood,
+Biometrics, 56:1016-1022, 2000.
+
+T Therneau, P Grambsch and VS Pankratz,
+Penalized survival models and frailty,
+J Computational and Graphical Statistics, 12:156-175, 2003.
 }
 \author{
 Terry Therneau

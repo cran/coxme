@@ -1,0 +1,40 @@
+\section{Methods for the random effects}
+Creating methods for the random effects turned out to be tricky.
+The problem is that I want to play along with nlme and lme4.
+
+The nlme package defines [[ranef]], [[random.effects]], [[fixef]], and
+[[fixed.effects]] as standard S3 generics. 
+If nlme is loaded first, I don't want to re-define these functions.
+If I do, then the ranef.lme method becomes invisible.  
+It appears to be a design decision: R doesn't know
+that my ranef function is identical to the ones in nlme, and
+so it 'forgets' the old methods in order to avoid inconsistency.
+The obvious solution to this is to check for existence of the functions
+before defining them.
+However, this doesn't work with namespaces -- you either have the file
+listed for export in the NAMESPACE file or you don't.
+
+If nlme is loaded after coxme, there will be a set of messages about
+replacement of the 4 functions; there is nothing I can do about
+that.  
+However, my definitions are now forgotton.  A solution to this is to
+make ranef.coxme and fixef.coxme exported symbols in the name space.
+R now finds them by standard mechanisms outside the name space structure.
+
+After some discussion on the R developer list, it was decided that the
+only workable solution was to include the line
+\begin{quote}
+   importFrom(nlme, ranef, fixef)
+\end{quote}
+into both coxme and lme4, importing the generic from the original nlme
+package.  It is the only way for the R exectutive to know that all the
+instances of a method are legal.
+
+<<ranef>>=
+# The objects that do the actual work (not much work)
+fixef.coxme <- function(object, ...)
+    object$coefficients$fixed
+
+ranef.coxme <- function(object, ...)
+    object$coefficients$random
+@ 
