@@ -57,7 +57,8 @@ print(sfit1, rcoef=TRUE)
 dummy <- runif(nrow(simdata), -4, -1)  #all start times before first event
 fit4b <- coxme(Surv(dummy, time, status) ~ age + trt + (1 +trt |inst), simdata)
 all.equal(fit4b$loglik, fit4$loglik)
-#all.equal(fit4b$coef, fit4$coef)  #different iteration path = tiny difference
+all.equal(fit4b$coef, fit4$coef, tolerance=1e-7) # different order of internal
+                                               # sums => tiny difference
 
 #Comparison plot
 y <- cbind(slope, NA, coef0[2,], fixef(sfit1)[2] + unlist(sfit1$frail),

@@ -46,11 +46,12 @@ coxme.fit <- function(x, y, strata, offset, ifixed, control,
     if (is.null(ifixed) ) ifixed <- rep(0., ncol(x))
     else if (length(ifixed) != ncol(x))
         stop("Wrong length for initial parameters of the fixed effects")
-                                      
+
+    if (length(itheta)==0) itemp <- 0 else itemp <- control$iter.max
     fit0 <- coxfitfun(x,y, strata=strata, 
                       offset=offset, init=ifixed, weights=weights,
-                      method=ties, rownames=1:nrow(y), 
-                      control=coxph.control(iter=0))
+                      method=ties, rownames=1:nrow(y),
+                      control=coxph.control(iter.max=itemp))
     control$inner.iter <- eval(control$inner.iter)
     kfun <- function(theta, varlist, vparm, ntheta, ncoef) {
         nrandom <- length(varlist)
@@ -187,46 +188,37 @@ coxme.fit <- function(x, y, strata, offset, ifixed, control,
         -(1+ ilik - fit0)
         }
 
+    ishrink <- 0.7  # arbitrary guess
+    init.coef <- c(rep(0., npenal), scale*fit0$coef* ishrink)
     if (length(itheta)==0) iter <- c(0,0)
     else {
         nstart <- sapply(itheta, length)
-        nextindex <- function(index, nstart) {
-            # Emulate a set of nested loops, last varies fastest
-            i <- length(index)
-            while (i >1 & index[i]==nstart[i]) {
-                index[i]<- 1
-                i <- i-1
-              }
-            index[i] <- index[i] +1L
-            index
-          }
-        
-        index <- rep(1L, length(itheta)) #current "do loop" index
-        theta <- double(length(itheta))
-        bestlog <- NULL
-        while(index[1] <= nstart[1]) {
-            for (i in 1:length(itheta)) theta[i] <- itheta[[i]][index[i]]
-            ll <- logfun(theta, varlist, vparm, kfun, ntheta, ncoef, 
-                         init=c(rep(0., npenal), scale*fit0$coef),
-                         fit0$loglik[1], control$inner.iter, ofile)
-            if (is.finite(ll)) {
-                #ll calc can fail if someone picks a very bad starting guess
-                if (is.null(bestlog) || ll < bestlog) {  
-                    # (optim is set up to minimize)
-                    bestlog <- ll
-                    besttheta <- theta
+        if (all(nstart==1)) theta <- unlist(itheta)  #one starting guess
+        else {
+            #make a matrix of all possible starting estimtes
+            testvals <- do.call(expand.grid, itheta)
+            bestlog <- NULL
+            for (i in 1:nrow(testvals)) {
+                ll <- logfun(as.numeric(testvals[i,]), 
+                             varlist, vparm, kfun, ntheta, ncoef, 
+                             init=init.coef, fit0$loglik[2], 
+                             control$inner.iter, ofile)
+                if (is.finite(ll)) {
+                    #ll calc can fail if someone picks a very bad starting guess
+                    if (is.null(bestlog) || ll < bestlog) {  
+                        # (optim is set up to minimize)
+                        bestlog <- ll
+                        theta <- as.numeric(testvals[i,])
+                    }
                 }
             }
-            index <- nextindex(index, nstart)
+            if (is.null(bestlog))
+                stop("No starting estimate was successful")
         }
-        if (is.null(bestlog))
-            stop("No starting estimate was successful")
-        theta <- besttheta
         # Finally do the fit
         logpar <- list(varlist=varlist, vparm=vparm, 
                        ntheta=ntheta, ncoef=ncoef, kfun=kfun,
-                       init=c(rep(0., npenal), scale*fit0$coef),
-                       fit0= fit0$loglik[1],
+                       init=init.coef, fit0= fit0$loglik[2],
                        iter=control$inner.iter,
                        ofile=ofile)
         mfit <- do.call('optim', c(list(par= theta, fn=logfun, gr=NULL), 

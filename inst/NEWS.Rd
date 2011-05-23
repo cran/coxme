@@ -1,5 +1,16 @@
 \name{NEWS}
 \title{NEWS file for the coxme package}
+\section{Changes in version 2.1-3}{
+  \itemize{
+    \item Further interaction with Gabor Mezaros and his huge data set
+    showed that I didn't get the iteration counts quite right (see
+    second bullet for 2.1-0).  As a positive, we now have cross checks and
+    agreement with the Survival Kit software for a substantial example,
+    a major increase in our assurance of the code's correctness.
+    The change in iteration paths causes small changes in some tests,
+    all statistically inconsequential.
+}}
+    
 \section{Changes in version 2.1-2}{
   \itemize{
     \item Fix a bug pointed out by Goran Brostrom: using (start, stop)

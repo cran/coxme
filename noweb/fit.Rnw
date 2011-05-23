@@ -296,15 +296,26 @@ Hopefully the coxvar routines have chosen a parameterization that will
 mostly avoid invalid solutions, i.e., those where [[kmat]] is not
 symmetric positive definite.
 
-The [[init]] parameter is a vector of starting estimates for the 
-$(b, \beta)$ solution.  It is tempting to use the final results from
-the prior iteration, but the solution from a model with no random effects
-seems to be safer.  The (1 -fit0) addition makes the solution be in the
-neighborhood of 1, which works well with the convergence criteria of
-the [[optim]] routine.
-We also found that it is best to always do the same number of iterations at
-each call.  Changes introduce little 'bumps' into the apparent loglik, which
+We found that it is best to always do the same number of iterations at
+each call.  Changes in the iteration count (i.e. if one value of
+$\theta$ requires 5 iterations to converge and another only 4 for instance) 
+introduce little 'bumps' into the apparent loglik, which
 drives [[optim]] nuts. Hence the min and max iteration count is identical.
+A similar issue applies to the vector of starting estimates $(b, \beta)$.
+It is tempting to use the final results from the prior $theta$ evaluation,
+but again this introduces an artifact.
+Thus all the calls to [[logfun]] use the same initial value.
+Two obvious choices for [[init]] are a vector of zeros and the fit
+to a fixed effects model.  The latter is likely to be better,
+but I worry about cases where the fit is nearly
+singular; user's sometimes fit models with more variables than they should. %'
+The current compromise is .7*the final fit + .3*zeros; this number is no
+more than a wild guess.
+The addition of (1 -fit0) to the final logliklihood makes the 
+the solution be in the neighborhood of 1 (for the case that the random
+terms add nothing to the fit)
+which works well with the convergence criteria of
+the [[optim]] routine.
 
 There are actually two C routines [[coxfit6b]] and [[agfit6b]], for ordinary
 and (start,stop) survival data, respectively.  The [[ofile]] argument 
@@ -346,9 +357,9 @@ estimate. The arguments in this case are
 \end{description}
 
 The routine calculates the log-lik for a succession of Cox models, each
-one using one of the random draws as it's random effect.
+one using one of the random draws as it's random effect.       %'
 The second part of the calculation is later in the code since it needs [[hmat]],
-which we haven't constructed yet.  
+which we haven't constructed yet.    %'
 <<refine>>=
 if (refine.n > 0) {
     nfrail <- ncol(gkmat)
@@ -481,15 +492,18 @@ Most coxph calls converge in 3-4 iterations.  The default value
 for [[control$inner.iter]] is [[Quote(fit0$iter +1)]] to avoid disaster in the
 case of a `hard' baseline model. We need to evaluate the expression  %'`
 after fit0 is known.
+If all values of $\theta$ are fixed, then fit0 only needs the value for
+a null model.
 <<null-fit>>=
 if (is.null(ifixed) ) ifixed <- rep(0., ncol(x))
 else if (length(ifixed) != ncol(x))
     stop("Wrong length for initial parameters of the fixed effects")
-                                  
+
+if (length(itheta)==0) itemp <- 0 else itemp <- control$iter.max
 fit0 <- coxfitfun(x,y, strata=strata, 
                   offset=offset, init=ifixed, weights=weights,
-                  method=ties, rownames=1:nrow(y), 
-                  control=coxph.control(iter=0))
+                  method=ties, rownames=1:nrow(y),
+                  control=coxph.control(iter.max=itemp))
 control$inner.iter <- eval(control$inner.iter)
 @ 
 
@@ -501,41 +515,33 @@ parameter in [[istart]]; try all combinations and keep the best one.
 <<coxme-fit>>=
 <<define-logfun>>
 
+ishrink <- 0.7  # arbitrary guess
+init.coef <- c(rep(0., npenal), scale*fit0$coef* ishrink)
 if (length(itheta)==0) iter <- c(0,0)
 else {
     nstart <- sapply(itheta, length)
-    nextindex <- function(index, nstart) {
-        # Emulate a set of nested loops, last varies fastest
-        i <- length(index)
-        while (i >1 & index[i]==nstart[i]) {
-            index[i]<- 1
-            i <- i-1
-          }
-        index[i] <- index[i] +1L
-        index
-      }
-    
-    index <- rep(1L, length(itheta)) #current "do loop" index
-    theta <- double(length(itheta))
-    bestlog <- NULL
-    while(index[1] <= nstart[1]) {
-        for (i in 1:length(itheta)) theta[i] <- itheta[[i]][index[i]]
-        ll <- logfun(theta, varlist, vparm, kfun, ntheta, ncoef, 
-                     init=c(rep(0., npenal), scale*fit0$coef),
-                     fit0$loglik[1], control$inner.iter, ofile)
-        if (is.finite(ll)) {
-            #ll calc can fail if someone picks a very bad starting guess
-            if (is.null(bestlog) || ll < bestlog) {  
-                # (optim is set up to minimize)
-                bestlog <- ll
-                besttheta <- theta
+    if (all(nstart==1)) theta <- unlist(itheta)  #one starting guess
+    else {
+        #make a matrix of all possible starting estimtes
+        testvals <- do.call(expand.grid, itheta)
+        bestlog <- NULL
+        for (i in 1:nrow(testvals)) {
+            ll <- logfun(as.numeric(testvals[i,]), 
+                         varlist, vparm, kfun, ntheta, ncoef, 
+                         init=init.coef, fit0$loglik[2], 
+                         control$inner.iter, ofile)
+            if (is.finite(ll)) {
+                #ll calc can fail if someone picks a very bad starting guess
+                if (is.null(bestlog) || ll < bestlog) {  
+                    # (optim is set up to minimize)
+                    bestlog <- ll
+                    theta <- as.numeric(testvals[i,])
+                }
             }
         }
-        index <- nextindex(index, nstart)
+        if (is.null(bestlog))
+            stop("No starting estimate was successful")
     }
-    if (is.null(bestlog))
-        stop("No starting estimate was successful")
-    theta <- besttheta
 @ 
 In the code below
 [[optpar]] is a list of control parameters for the [[optim]] function,
@@ -549,8 +555,7 @@ however, I prefer to make such hidden arguments explicit.
     # Finally do the fit
     logpar <- list(varlist=varlist, vparm=vparm, 
                    ntheta=ntheta, ncoef=ncoef, kfun=kfun,
-                   init=c(rep(0., npenal), scale*fit0$coef),
-                   fit0= fit0$loglik[1],
+                   init=init.coef, fit0= fit0$loglik[2],
                    iter=control$inner.iter,
                    ofile=ofile)
     mfit <- do.call('optim', c(list(par= theta, fn=logfun, gr=NULL), 
