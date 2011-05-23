@@ -1,4 +1,3 @@
-/* $Id: agfit6b.c,v 1.9 2006/08/01 19:26:43 therneau Exp $ */
 /*
 ** This call is used for iteration
 **   It assumes a fixed penalty matrix, stored as a bdsmatrix of course
@@ -60,7 +59,7 @@ void agfit6b(  Sint *maxiter,  double *beta,
     nvar2= nvar + (nf - nfac);  /* number of cols of X */
     nvar3= nvar + nf; /* total number of coefficients */
     nvar2b= nvar3-ns; /* number of non-sparse coefficients */
-    nfns  = nf - ns ; /* number of factors that are NOT sparse */
+    nfns  = nfac - ns ; /* number of factors that are NOT sparse */
     for (i=0; i<nvar3; i++) c6.oldbeta[i] = beta[i];
 
     /*
@@ -198,9 +197,10 @@ void agfit6b(  Sint *maxiter,  double *beta,
 
 	    for (i=0; i<nvar2; i++) {   /* non-sparse part */
 		c6.a[i+nfac] += risk * c6.x[i][p];
-		for (j=0; j<=i; j++)
+		for (j=0; j<=i; j++){
+                  temp =  risk*c6.x[i][p]*c6.x[j][p];
 		    c6.cmat[i+nfns][j+nfac] += risk*c6.x[i][p]*c6.x[j][p];
-		}
+		}}
 
 	    /*
 	    ** Extra terms for the deaths

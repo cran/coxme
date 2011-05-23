@@ -66,3 +66,15 @@ fit2 <- coxme(Surv(futime, status) ~ trt1 + (1+trt1 | site), smdata,
 aeq(fit1$log, fit2$log)
 aeq(unlist(fit1$frail), unlist(fit2$frail))
 aeq(fixef(fit1), fixef(fit2))
+
+# Same models, but fit with the start,stop part of the code
+dummy <- runif(nrow(smdata), -4, -1)  #all start times before any stop times
+fit1b <- coxme(Surv(dummy, futime, status) ~ trt1 + (1 | site) + (trt1|site), 
+               smdata, ties=approx)
+all.equal(fit1b$frail, fit1$frail)
+aeq(fit1$loglik, fit1b$loglik)
+
+fit2b <- coxme(Surv(dummy, futime, status) ~ trt1 + (1+trt1 | site), smdata,
+              ties=approx, varlist=myvar(c(unlist(ranef(fit1)), 0)))
+all.equal(fit2b$loglik, fit2$loglik)
+all.equal(coef(fit2b), coef(fit2))

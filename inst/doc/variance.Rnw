@@ -7,11 +7,11 @@
 
 \SweaveOpts{keep.source=TRUE}
 %\VignetteIndexEntry{Special Variance Stuctures}
-%\VignetteDependes{surviva}
+%\VignetteDependes{survival}
 
 \title{Creating Special Variance Structures for Coxme} 
 
-\author{Terry Therneau \\ Mayo Clinic}
+\author{Terry Therneau and Marianne Huebner\\ Mayo Clinic}
 
 \begin{document}
 \maketitle
@@ -26,13 +26,14 @@ This allows the program to be extended in ways not visualized by the author.
 This short vignette gives an example of such a structure.
 
 We would like to fit the following random effects model
-\begin{align}
+\begin{align*}
   \lambda(t) &= \lambda_0(t) e^{X\beta + Zb} \\
-  b &= N(0, \sigma^2 R) \\
-  R_{ij} &= \begin{cases} 1 & \text{if } i=j\\
-                                  \rho & \text{otherwise} 
+  b &= N(0, V(\theta) \\
+  \theta &= (\sigma^2, \rho)\\
+  V_{ij} &= \begin{cases} \sigma^2 & \text{if } i=j\\
+                                  \sigma^2 \rho & \text{otherwise} 
 				  \end{cases}
-\end{align}
+\end{align*}
 
 The motivating example is the use of gene sets in a lung cancer study.
 Here $X$ is a matrix of
@@ -43,10 +44,11 @@ There is a separate $Z$ for each gene set, the number of columns of $Z$
 typically ranges from 10 to 100.
 
 When $\rho=1$ this model constrains all of the coefficients to be identical.
-This is equivalent to a shrinkage method found commonly in the 
-the utilzation of questionairres, where all
+This is equivalent to a shrinkage method found commonly in 
+the utilization of questionnaires, where all
 of the questions in a particular domain are summed to get an overall score
 for that domain which is then used as a covariate in a model.
+When $\rho=0$ it becomes simple $L_2$ shrinkage of the coefficients.
 
 The coxme code for this model will be 
 <<eval=FALSE, echo=TRUE>>=
@@ -70,7 +72,7 @@ gexchange <- function() {
 
 \subsection{Initialization function}
 The initialization function is often the most tedious to create.
-It is responsbile for 4 tasks:
+It is responsible for 4 tasks:
 \begin{enumerate}
   \item Verify that the input data is consistent with the variance function
   \item Process any initial values given by the user
@@ -88,22 +90,27 @@ Input arguments are
     fit found becomes the starting estimate for the full maximization.
     The routine below requires that the starting estimates be named and that
     both are supplied, other routines could be more or less flexible.
-  \item fixed: a vector of fixed values for the parameters, as supplied
+  \item vfixed: a vector of fixed values for the parameters, as supplied
     by the user.  For instance adding the clause 
-    \texttt{variance=list(rho=.4)} could be used to fit a model where $\rho$
+    \texttt{vfixed=list(rho=.4)} could be used to fit a model where $\rho$
     is fixed at 0.4.
-  \item intecept: Does the term include an intercept.  This would be true
+  \item intercept: Signals that the term include random intercepts per
+    group.  This would be true
     for a term like \texttt{(1+ trt | site)}, but is invalid 
-    for this variance function.
+    for this variance function (there are no groups).
   \item G: A vector or matrix containing the grouping variables found on the
     right hand side of the vertical bar.
   \item X: A matrix of covariates found on the left of the vertical bar.
   \item sparse: User specified parameter which advises with respect to the
     use of sparse matrices.  It is ignored in this function.
 \end{itemize}
+Note that this is currently called from the main routine using positional
+unnamed arguments.  Thus you can name the arguments otherwise, but not
+reorder them.
+
 
 <<>>=
-geinit <- function(vinit, fixed, intercept, G, X, sparse) {
+geinit <- function(vinit, vfixed, intercept, G, X, sparse) {
     if (length(G) >0)  
         stop("This function does not handle groupings")
     if (length(X)==0)
@@ -122,17 +129,17 @@ geinit <- function(vinit, fixed, intercept, G, X, sparse) {
     else theta <- list(c(.05, .2, .6)^2, c(.01, .5, .9))
         
     which.fixed <- c(FALSE, FALSE)    
-    if (length(fixed) >0) {
-        indx <- match(names(fixed), c("sigma", "rho"))
+    if (length(vfixed) >0) {
+        indx <- match(names(vfixed), c("sigma", "rho"))
         if (any(is.na(indx))) 
             stop("Unrecognized parameter name in vfixed values")
-        if (is.list(fixed)) {
-            if (any(sapply(fixed, length) !=1))
+        if (is.list(vfixed)) {
+            if (any(sapply(vfixed, length) !=1))
                 stop("Any fixed parameter must have a single value")
-            fixed <- unlist(fixed)
+            vfixed <- unlist(vfixed)
         }
         which.fixed[indx] <- TRUE
-        theta[which.fixed] <- fixed[which.fixed]
+        theta[which.fixed] <- vfixed[which.fixed]
     }
 
     if (any(theta[[1]] <=0)) stop("Variance must be >0")
@@ -154,12 +161,12 @@ geinit <- function(vinit, fixed, intercept, G, X, sparse) {
 
 The first six lines check that this variance structure is relevant for
 the random term as specified.   
-The next block of statements reads in any initial values for the parameters.
-The parameter vector as a whole is $\theta=(\sigma^2, \rho)$.
+The next block of statements processes any initial values for the parameters.
+The parameter vector as a whole is $\theta=(\sigma^2, \rho)$ =''theta''.
 If no initial values were given then a default grid of values for the
-iniitial search is $\sigma=.05, .2, .6$ and $\rho= .01, .5, .9$.
+initial search is $\sigma=.05, .2, .6$ and $\rho= .01, .5, .9$.
 Note that the final $\theta$ is always a list, even if all the elements
-parameters only have length 1
+have a search list of length 1.
 
 The next block of lines checks for any fixed parameters.  If any are found
 the corresponding elements of \texttt{which.fixed} are set and the initial
@@ -167,9 +174,9 @@ value is reset.
 For iteration we will use transformed parameters:
 \begin{align*}
   \tilde \theta_1 &= \log(\sigma) \\
-  \tilde \theta_2 &= \log\left(\frac{\rho}{1-rho}\right)
+  \tilde \theta_2 &= \log\left(\frac{\rho}{1-\rho}\right)
 \end{align*}
-The actual optimization is done by the \texttt{optim} routine, and need 
+The actual optimization is done by the \texttt{optim} routine, and we need 
 it to operate in an unconstrained space.  No transform is required for 
 the fixed parameters, which are never made visible to the optim routine.
 
@@ -195,35 +202,59 @@ the relevant variance function uses a bsdmatrix object for the variance.
 This requires that
 all the coefficients for a family are adjacent in the parameter vector,
 but the subject identifier variable might not be in this order.  A value for
-\texttt{imap} of 1, 7, 4, \ldots would map subject 1 to coefficent 1, 
-subject 7 to coeffient 2, subject 3 to coefficient 4, etc.
+\texttt{imap} of 1, 7, 4, \ldots would map subject 1 to coefficient 1, 
+subject 7 to coffined 2, subject 3 to coefficient 4, etc.
 A valid imap value will be a matrix with one column per grouping variable
-(the term (1|teacher/school) would have 2 columns), each row contains the
+(the term (1| school/teacher) would have 2 columns), each row contains the
 coefficient number for that subject.  
 The xmap matrix is the same shape as $Z$, and shows for each subject
 the coefficient number which multiplies the relevant covariate.
 
 \subsection{Generation function}
-The input arguements to this function are the current vector of
+The input arguments to this function are the current vector of
 iterated parameters, along with the list of parameters supplied by the
 init function.
-The result of the routine is the covariance matrix $\Sigma$ of the
+The result of the routine is the covariance matrix $V$ of the
 random effects for the term.
 
-One of the greatest challenges for this routine is to guarrantee that the
+One of the greatest challenges for this routine is to guarantee that the
 resulting matrix is positive definite to a sufficient degree that the
-creation of $\Sigma^{-1}$ will give a full rank result.
+creation of $V^{-1}$ will give a full rank result.
+In simulations, we found that under the null hypothesis of no 
+association between the gene set and survival that somewhat more than
+1/2 of the solutions had $\hat\sigma=0$, i.e., this is the actual
+maximizing value of the likelihood.
+Thus, for about half the no-association cases the code is iterating
+towards 0 as a solution.
+In this case a race condition ensues.  As $\log(\sigma^2)$
+goes to $-\infty$ in the maximizer, the variance matrix $V$ approaches
+singularity while the random coefficients $b$ approach zero.
+Since the parial log-likelihood (PL) depends only on the linear predictor
+$X\beta + Zb$ it quickly asymptotes to a its final value which is
+the PL for the fixed effects model $X\beta$.
+Convergence of the PL to within the final tolerance gives successful
+termination; a singular matrix leads to program failure.
+
+In the \texttt{coxme.control} routine we see that the default
+convergence criteria for the partial likelihood is 1e-8, whereas the
+singularity test for the variance matrix is \verb+.Machine$double.eps^.75+
+$\approx$ 2e-12.
+Since the default convergence criteria is larger than the singularity
+tolerance normally all proceeds well: the likelihood is declared to
+converge before singularity occurs.
+However, occassionally the maximizer makes a very large step in the
+negative direction leading to $\log(\sigma^2)$ values that are
+extremely small.  We try to protect against this.
 The Affymetric gene-set for which this routine was developed had
 values between 6 and 15, which in turn means that any coefficient less
-than about .0001 has an effect size of effectively zero.  
-Very small variances, which lead to $b$ vectors of that size, need not 
-be persued to a bitter end of $\log(\epsilon) \rightarrow -\infty$
-for $\epsilon \rightarrow 0$.  For many gene sets
-$\sigma=0$ is the actual MLE, but the change in LL for these smallest
-values becomes so tiny as to approach machine precision.
-The second limit in the routine came from a particular data set where
+than about .0001 has a neglibible effect on the linear predictor.
+Variances of about $\exp(-20)$ are large enough to avoid issues with
+the matrix inversion, but small enough that the linear predictor will
+have effectively converged: $b$ is are approximately Gaussian with
+a standard deviation of .00004 so $Zb < .00008*15$. 
+The second limit was in response to a single data set where
 an intermediate guess in the maximization gave too large a variance,
-far beyond what is biologically feasable, which in turn led to
+far beyond what is biologically feasible, which in turn led to
 overflow of the exp function in calculation of $\exp(X\beta + Zb)$.
 
 <<generate>>=
@@ -335,7 +366,7 @@ myvar <- function(var) {
     out
     }
 @ 
-This routine ingores any vinit or vfixed arguments and does absolutely
+This routine ignores any vinit or vfixed arguments and does absolutely
 no error checking; it assumes for instance that $Z$ has exactly one column
 and that there is exactly one grouping variable; 
 the input argument is assumed to be length three with valid values.

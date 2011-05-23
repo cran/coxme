@@ -53,6 +53,12 @@ sfit1 <- coxme(Surv(time, status) ~ age + trt + (trt|inst) + strata(inst),
                simdata)
 print(sfit1, rcoef=TRUE)
 
+# Check that the start,stop code does the same
+dummy <- runif(nrow(simdata), -4, -1)  #all start times before first event
+fit4b <- coxme(Surv(dummy, time, status) ~ age + trt + (1 +trt |inst), simdata)
+all.equal(fit4b$loglik, fit4$loglik)
+#all.equal(fit4b$coef, fit4$coef)  #different iteration path = tiny difference
+
 #Comparison plot
 y <- cbind(slope, NA, coef0[2,], fixef(sfit1)[2] + unlist(sfit1$frail),
            fixef(fit3)[2] + fit3$frail[[2]],

@@ -92,3 +92,19 @@ Loading required package: nlme
 > aeq(fixef(fit1), fixef(fit2))
 [1] TRUE
 > 
+> # Same models, but fit with the start,stop part of the code
+> dummy <- runif(nrow(smdata), -4, -1)  #all start times before any stop times
+> fit1b <- coxme(Surv(dummy, futime, status) ~ trt1 + (1 | site) + (trt1|site), 
++                smdata, ties=approx)
+> all.equal(fit1b$frail, fit1$frail)
+[1] TRUE
+> aeq(fit1$loglik, fit1b$loglik)
+[1] TRUE
+> 
+> fit2b <- coxme(Surv(dummy, futime, status) ~ trt1 + (1+trt1 | site), smdata,
++               ties=approx, varlist=myvar(c(unlist(ranef(fit1)), 0)))
+> all.equal(fit2b$loglik, fit2$loglik)
+[1] TRUE
+> all.equal(coef(fit2b), coef(fit2))
+[1] TRUE
+> 
