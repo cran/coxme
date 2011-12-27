@@ -1,5 +1,5 @@
 
-R version 2.13.0 (2011-04-13)
+R version 2.14.0 (2011-10-31)
 Copyright (C) 2011 The R Foundation for Statistical Computing
 ISBN 3-900051-07-0
 Platform: x86_64-unknown-linux-gnu (64-bit)
@@ -20,7 +20,25 @@ Type 'q()' to quit R.
 Loading required package: survival
 Loading required package: splines
 Loading required package: bdsmatrix
+
+Attaching package: 'bdsmatrix'
+
+The following object(s) are masked from 'package:base':
+
+    backsolve
+
 Loading required package: nlme
+Loading required package: Matrix
+Loading required package: lattice
+
+Attaching package: 'Matrix'
+
+The following object(s) are masked from 'package:base':
+
+    det
+
+Warning message:
+replacing previous import 'diag' when loading 'Matrix' 
 > aeq <- function(x,y) all.equal(as.vector(x), as.vector(y))
 > 
 > #
@@ -58,8 +76,8 @@ Loading required package: nlme
 +               ties=approx)
 > fit2 <- coxme(Surv(futime, status) ~ trt2 + (1 + trt2 | site), trdata,
 +               ties=approx)
-> # I don't yet understand why fit1 and fit2 have different iteration
-> #  paths
+> # Fit1 and fit2 are actually different models, with different 
+> #  iteration paths and maxima.
 > 
 > # Test out loglik
 > eta <- fit1$linear
@@ -69,13 +87,13 @@ Loading required package: nlme
 [1] TRUE
 > 
 > # First derivatives
-> temp <- ranef(fit1)[[1]]
+> temp <- VarCorr(fit1)[[1]]
 > sigma <- diag(c(rep(temp[1],4), rep(temp[4],4)))
 > sigma[cbind(1:4,5:8)] <- temp[3]* sqrt(temp[1] * temp[4])
 > sigma[cbind(5:8,1:4)] <- temp[3]* sqrt(temp[1] * temp[4])
 > pen <- matrix(0., 9,9)
 > pen[1:8, 1:8] <- solve(sigma)
-> pcoef <- c(unlist(fit1$frail), fixef(fit1))
+> pcoef <- c(unlist(ranef(fit1)), fixef(fit1))
 > aeq(pcoef %*% pen %*% pcoef/2, fit1$penal)
 [1] TRUE
 > 

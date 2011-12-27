@@ -665,7 +665,7 @@ for two levels of a factor, then we assume that $\sigma_2^2= \sigma_3^2$,
 $\sigma_{12}=\sigma_{13}$ and $\sigma_{23}=0$; 
 from a parameter count view they act like a single variable.
 This makes no change at all in the number of coefficients $b$ or in the 
-structure of their covariance matrix in equation \ref{varcov}.
+structure of their covariance matrix in equation \ref{eq:varcov}.
 But we now need to have a ``real'' $\theta$ vector containing just 3 parameters,
 an expanded one [[etheta]] containing all 6 terms, and a mapping between them.
 
@@ -889,7 +889,7 @@ For cases 1 and 2 adding names is almost all we need to do.
 <<coxmeFull-wrapup>>=
 wrapup <- function(theta, b, parms) {
     newtheta <- parms$theta
-    newtheta[!parms$fixed] <- exp(theta)
+    if (length(theta)) newtheta[!parms$fixed] <- exp(theta)
     
     if (parms$case==1) {
         theta <- list(c('(Shrinkage)' = newtheta[1]))
@@ -897,7 +897,7 @@ wrapup <- function(theta, b, parms) {
         names(b) <- parms$xname
         return(list(theta =theta, b=list('1'=b)))
         }
-        
+
     if (parms$case==2) {
         names(newtheta) <- 'Intercept'
         names(b) <- parms$levellist[[1]]
@@ -940,7 +940,7 @@ The last case is of course the most complicated, it has both covariates
 and groupings.
 For a complicated random effect [[(1+ age |institution/sex)]] it should return
 a two element list for [[theta]] with names `institution' and
-1institution/sex', each of which contains a $2 \times 2$ 
+`institution/sex', each of which contains a $2 \times 2$ 
 matrix with variances on
 the diagonal and correlations off the diagonal.
 (We are echoing the desired form for the printout).
@@ -961,7 +961,7 @@ It may be a matrix of one column.
         intercept <- parms$intercept
         ngroup <- length(parms$nlevel)
         nvar <- parms$nvar
-        
+
         # Deal with b
         random <- split(b, rep(rep(1:ngroup, parms$nlevel), intercept +nvar))
         names(random) <- parms$gname

@@ -5,6 +5,8 @@ PARTS = main.Rnw \
 	varfun.Rnw  varfun2.Rnw \
 	fit.Rnw \
 	ranef.Rnw \
+	lmekin.Rnw \
+	bdsmatrix.Rnw
 #	reconcile.Rnw
 
 SFUN =  coxme.R \
@@ -13,6 +15,7 @@ SFUN =  coxme.R \
 	formula.R \
 	coxmeFull.R \
 	coxmeMlist.R \
+	lmekin.R\
 	ranef.R
 #	matrix.reconcile.R
 

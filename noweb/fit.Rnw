@@ -23,7 +23,7 @@ values for $\beta$ and $b$
 
 The overall outline of the routine is
 <<coxme.fit>>=
-<<coxme-setup>>
+    <<coxme-setup>>
     <<null-fit>>
     <<define-penalty>>
     <<coxfit6a-call>>
@@ -101,7 +101,7 @@ where [[g1]] has two common and 60 uncommon levels, [[g2]] has 5
 levels and [[g3]] has 8.
 (A complicated random effects model I admit.)
 The first variance matrix is required to be of a [[bsdmatrix]]
-form with an [[rmat]] slot of dimension $124 \times 66$, call this $T$.
+form with an [[rmat]] slot of dimension $126 \times 66$, call this $T$.
 The variance structure for the other two terms, call them $U$ and
 $V$, can be of any matrix type.
 The final bdsmatrix will have the block-diagonal portions for the
@@ -348,53 +348,76 @@ estimate. The arguments in this case are
   \item[rfile] either 'coxfit6d' or 'agfit6d'
   \item[beta] the final solution vector $(b, \beta)$, though only $\beta$
     is used.
-  \item[gkmat] the final variance-covariance matrix at the solution
-  \item[bmat] matrix of normal 0/1 random variables with nfrail rows (dimension
-    of beta and of gkmat) and refine.n columns.  
-    Each column of the product [[gkmat %*% bmat]] is a random Gaussian draw
-    with correlation [[kmat]].
+  \item[bmat] matrix of trial values for the random coefficients.
+    Should have nfrail rows and refine.n columns.
   \item[loglik] log-likelihoods at the random points
 \end{description}
 
 The routine calculates the log-lik for a succession of Cox models, each
 one using one of the random draws as it's random effect.       %'
-The second part of the calculation is later in the code since it needs [[hmat]],
-which we haven't constructed yet.    %'
+The set of trial values is drawn from a t-distribution with
+refine.df degrees of freedom, centered at the observed
+random coefficients and with variance hmat-inverse.
+Now if a random colum vector $X$ has the identity variance
+matrix, then $CX$ have variance $CC'$.    %'
+To get the variance we want we need a matrix
+$C$ such that 
+$CC' = (H_{bb})^{-1}$  where $H_{bb}$ is the portion of.%'
+of the Hessian matrix $H$ corresponding to the random effects.
+The [[bmat]] matrix below has such a random sample in each column.
+We already have the cholesky decompostion $LDL'$ of $H$ in hand; %'
+the decomposition of the upper left corner is the upper left
+corner of the decompostion.
+The inverse matrix is (L-inverse)' D-inverse (L-inverse), which %'
+means we want to backsolve with respect to the upper triangular
+portion. 
+
+The natural way to generate t-variates is to use the mvtnorm
+library; however, it expects $H^{-1}$ which may be a dense matrix,
+we already have the sparse cholesky of $H$ [[hmat]], 
+and so we essentially duplicate the lines of rmvt and dmvt
+that occur after matrix decomposition.  For further details
+see the vignette on laplace approximations.
 <<refine>>=
 if (refine.n > 0) {
+    rdf <- control$refine.df
     nfrail <- ncol(gkmat)
+    hmatb <- hmat[1:nfrail, 1:nfrail]
+    #create the random t-variate with variance H-inverse
     bmat <- matrix(rnorm(nfrail*refine.n), ncol=refine.n)
+    bmat <- backsolve(hmatb, bmat, upper=TRUE) /
+        rep(sqrt(rchisq(refine.n, df=rdf)/rdf), each=nfrail)
+    bmat2 <- bmat + fit$beta[1:nfrail]  #recenter
 
     rfit <- .C(rfile,
                as.integer(refine.n),
                as.double(fit$beta),
-               as.double(gkmat %*% bmat),
-               loglik = double(refine.n))
-    }
-@ 
+               as.double(bmat2),
+               loglik = double(refine.n), dup=FALSE)
 
-The second two terms for the calculation are quadratic forms.  
-Mathematically, the actual correction is the mean of 
-[[exp(rfit$loglik) - exp[[fit$loglik + rterm2 - rterm3]].  
-However, many of these will be huge negative numbers and the
-exponentials would become exact zeros, leaving no digits of
-precision in the difference. 
-The Laplace approximation to the integrated log-likelihood is
-based on the assumption that mean of the first term is 
-[[exp(ilik)]], so that is a natural centering value, i.e.,
-[[exp(rfit$loglik - ilik)]] should give numbers centered around 1.
-<<refine2>>=
-if (refine.n > 0) {
-    nfrail <- ncol(gkmat)
-    rterm2 <- colSums(bmat^2)/2
-    delta  <- fit$beta[1:nfrail] - gkmat %*% bmat
-    rterm3 <- rowSums((t(delta) %*% hmat[1:nfrail, 1:nfrail])^2)/2
-    temp <- cbind(rfit$loglik, fit$loglik[2] +rterm2 - rterm3)
-    errhat <- exp(temp[,1]- ilik) - exp(temp[,2]- ilik)
-    ilik  <- ilik + log(1+ mean(errhat))
-    r.correct <- c(correction= mean(errhat), 
-                           std =sqrt(var(errhat)/refine.n))
-    }
+    # Penalty terms
+    penalty1 <- colSums(bmat2*(ikmat %*% bmat2))/2
+    penalty2 <- rowSums((t(bmat) %*% hmatb)^2 )/2
+
+    # Constant for the Gaussian density,  and density of the t-dist (logs)
+    gdens <- -0.5* (sum(log(diag(gkmat))) + nfrail*log(2* pi))
+    logdet <- -sum(log(diag(hmatb)))
+    tdens <- lgamma((nfrail + rdf)/2) - 
+            (lgamma(rdf/2) + 0.5*(logdet + nfrail* log(pi*rdf) + 
+             (nfrail+ rdf)* log(1 + 2*penalty2/rdf)))
+    
+    # Add it up, we have to be very careful about round-off
+    n1 <- rfit$loglik + gdens - (penalty1 + ilik + tdens)
+    n2 <- fit$loglik[2] + gdens - (penalty2 + ilik + tdens)
+    temp <- max(n1, n2)  #scale so the largest value is about 1
+    errhat <- (exp(n1-temp) - exp(n2-temp)) * exp(temp)
+    #errhat <- (exp(rfit$loglik -(penalty1 + ilik)) - 
+    #        exp(fit$loglik[2]- (penalty2 + ilik))) * exp(gdens-tdens)
+    mtemp <- mean(errhat)             #estimated integral
+    stemp <- sqrt(var(errhat)/refine.n)   #std of the estimate
+    r.correct <- c(correction= log(1+ mtemp), std=stemp/(1 +mtemp)) #log scale
+    #ilik <- ilik + r.correct[1]
+}
 @ 
 
 The final routine [[coxfit6c]] is used for cleanup, and is
@@ -492,7 +515,10 @@ Most coxph calls converge in 3-4 iterations.  The default value
 for [[control$inner.iter]] is [[Quote(fit0$iter +1)]] to avoid disaster in the
 case of a `hard' baseline model. We need to evaluate the expression  %'`
 after fit0 is known.
-If all values of $\theta$ are fixed, then fit0 only needs the value for
+If all values of $\theta$ are fixed, then the only thing we will
+use from fit0 is the loglik.
+Note that if there are no covariates or only an offset term, then 
+the returned log-likelihood is of length 1, not 2.
 a null model.
 <<null-fit>>=
 if (is.null(ifixed) ) ifixed <- rep(0., ncol(x))
@@ -504,6 +530,7 @@ fit0 <- coxfitfun(x,y, strata=strata,
                   offset=offset, init=ifixed, weights=weights,
                   method=ties, rownames=1:nrow(y),
                   control=coxph.control(iter.max=itemp))
+loglik0 <- fit0$loglik[length(fit0$loglik)]  # in case of no covariates  
 control$inner.iter <- eval(control$inner.iter)
 @ 
 
@@ -517,31 +544,38 @@ parameter in [[istart]]; try all combinations and keep the best one.
 
 ishrink <- 0.7  # arbitrary guess
 init.coef <- c(rep(0., npenal), scale*fit0$coef* ishrink)
+
 if (length(itheta)==0) iter <- c(0,0)
 else {
-    nstart <- sapply(itheta, length)
-    if (all(nstart==1)) theta <- unlist(itheta)  #one starting guess
-    else {
-        #make a matrix of all possible starting estimtes
-        testvals <- do.call(expand.grid, itheta)
-        bestlog <- NULL
-        for (i in 1:nrow(testvals)) {
-            ll <- logfun(as.numeric(testvals[i,]), 
-                         varlist, vparm, kfun, ntheta, ncoef, 
-                         init=init.coef, fit0$loglik[2], 
-                         control$inner.iter, ofile)
-            if (is.finite(ll)) {
-                #ll calc can fail if someone picks a very bad starting guess
-                if (is.null(bestlog) || ll < bestlog) {  
-                    # (optim is set up to minimize)
-                    bestlog <- ll
-                    theta <- as.numeric(testvals[i,])
-                }
+    <<coxme-gridsearch>>
+@ 
+
+This is set out as a block since it is also used in lmekin.
+(Later, copied but not used due to different logfun).
+<<coxme-gridsearch>>=
+nstart <- sapply(itheta, length)
+if (all(nstart==1)) theta <- unlist(itheta)  #one starting guess
+else {
+    #make a matrix of all possible starting estimtes
+    testvals <- do.call(expand.grid, itheta)
+    bestlog <- NULL
+    for (i in 1:nrow(testvals)) {
+        ll <- logfun(as.numeric(testvals[i,]), 
+                     varlist, vparm, kfun, ntheta, ncoef, 
+                     init=init.coef, loglik0, 
+                     control$inner.iter, ofile)
+        if (is.finite(ll)) {
+            #ll calc can fail if someone picks a very bad starting guess
+            if (is.null(bestlog) || ll < bestlog) {  
+                # (optim is set up to minimize)
+                bestlog <- ll
+                theta <- as.numeric(testvals[i,])
             }
         }
-        if (is.null(bestlog))
-            stop("No starting estimate was successful")
     }
+    if (is.null(bestlog))
+        stop("No starting estimate was successful")
+}
 @ 
 In the code below
 [[optpar]] is a list of control parameters for the [[optim]] function,
@@ -555,7 +589,7 @@ however, I prefer to make such hidden arguments explicit.
     # Finally do the fit
     logpar <- list(varlist=varlist, vparm=vparm, 
                    ntheta=ntheta, ncoef=ncoef, kfun=kfun,
-                   init=init.coef, fit0= fit0$loglik[2],
+                   init=init.coef, fit0= loglik0,
                    iter=control$inner.iter,
                    ofile=ofile)
     mfit <- do.call('optim', c(list(par= theta, fn=logfun, gr=NULL), 
@@ -584,21 +618,21 @@ fit <- .C(ofile,
 ilik <- fit$loglik[2] -
   .5*(sum(log(diag(gkmat))) + fit$hdet)
 iter[2] <- iter[2] + fit$iter[2]
-<<refine>>
 @
               
 \subsection{Finishing up}
 \label{sect:final}
-There are 5 tasks left to do
+There are 6 tasks left to do
 <<coxme-finish>>=
-<<release-memory>>
+<<coxme-lastvar>>
 <<coxme-rescale>>
 <<coxme-df>>
-<<refine2>>   
+<<refine>>  
+.C("coxfit6e", as.integer(ncol(y)))  #release memory
 <<create-output-list>>
 @ 
 
-The nexts ection finishes up with the C code.
+The nexts section finishes up with the C code.
 The first few lines reprise some variables
 found in the C code but not before needed here.
 It returns the score vector $u$, the 
@@ -607,8 +641,7 @@ Hessian matrix (h.b and h.r), the
 inverse Hessian matrix (hi.b, hi.r), and the rank of the final 
 solution.  These are needed to compute the variance matrix of the
 estimates.
-It then releases all the memory allocated by the initial routine.
-<<release-memory>>=
+<<coxme-lastvar>>=
 nfrail <- nrow(ikmat)  #total number of penalized terms
 nsparse <- sum(ikmat@blocksize)
 nvar2  <- nvar + (nfrail - nsparse)  # total number of non-sparse coefs
@@ -747,9 +780,10 @@ if (refine.n>0) {
     #The next line can be turned on for detailed tests in refine.R
     #  The feature is not documented in the manual pages, only
     #  here.
-    if (exists("coxme.refine.debugswitch") && coxme.refine.debugswitch)
-        out$refine.debug <-list(loglik=rfit$loglik, bmat=bmat,
-                                       errhat=errhat, gkmat=gkmat)
+    if (control$refine.detail)
+        out$refine.detail <-list(loglik=rfit$loglik, bmat=bmat2, tdens=tdens,
+                                penalty1=penalty1, penalty2=penalty2,
+                                gdens=gdens, errhat=errhat, gkmat=gkmat)
     }
 out
 }

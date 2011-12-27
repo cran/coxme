@@ -30,17 +30,28 @@ trdata <- mkdata(150)  #150 enrolled per site
 
 set.seed(50)
 nsim <- 500
-coxme.refine.debugswitch <- TRUE #causes extra info in the output
 fit <- coxme(Surv(futime, status) ~ trt2 + (1 + trt2 | site), trdata,
-             refine.n=nsim)
-debug <- fit$refine.debug
+             refine.n=nsim, refine.detail=TRUE)
+debug <- fit$refine.detail
 
 # Recreate the variance-covariance and sim data that was used
 set.seed(50)
 bmat <- matrix(rnorm(8*nsim), nrow=8)
-if (!is.null(debug)) all.equal(bmat, debug$b)
+hmatb <- fit$hmat[1:8, 1:8]
+hmat.inv <- as.matrix(solve(hmatb))
 
-temp <- ranef(fit)[[1]]
+chidf <- coxme.control()$refine.df
+
+b2 <- backsolve(hmatb, bmat, upper=TRUE)
+htran <- as(hmatb, "dtCMatrix")  #verify that backsolve works correctly
+all.equal(as.matrix(htran %*% b2), bmat, check.attr=FALSE)
+
+b2 <- scale(b2, center=F, scale=sqrt(rchisq(nsim, df=chidf)/chidf))
+b3 <- b2 + unlist(ranef(fit)) 
+aeq(b3, debug$bmat)
+
+
+temp <- VarCorr(fit)[[1]]
 sigma <- diag(c(rep(temp[1],4), rep(temp[4],4)))
 sigma[cbind(1:4,5:8)] <- temp[3]* sqrt(temp[1] * temp[4])
 sigma[cbind(5:8,1:4)] <- temp[3]* sqrt(temp[1] * temp[4])
@@ -48,12 +59,10 @@ sigma[cbind(5:8,1:4)] <- temp[3]* sqrt(temp[1] * temp[4])
 if (!is.null(debug))
     all.equal(as.matrix(gchol(sigma), ones=F), as.matrix(debug$gkmat, ones=F))
 
-b2 <- t(bmat) %*% chol(sigma)  #matches the transformed bmat in coxme.fit
-# variance of b2 is t(cs) %*% cs = sigma, where cs=chol(sigma)
 coxll <- double(nsim)
 for (i in 1:nsim) {
-    lp <- trdata$trt2 * fixef(fit) + b2[i,trdata$site] +
-           b2[i, trdata$site +4] * trdata$trt2
+    lp <- trdata$trt2 * fixef(fit) + b3[trdata$site,i] +
+           b3[trdata$site +4,i] * trdata$trt2
     tfit <- coxph(Surv(futime, status) ~ offset(lp), trdata)
     coxll[i] <- tfit$loglik
     }
@@ -65,27 +74,36 @@ constant <- .5*(log(2*pi) + sum(log(diag(gchol(sigma)))))
 fit$log[2] + c(IPL=0, sim=log(mean(exp(coxll-fit$log[2]))) - constant)
 
 # Compute the Taylor series for the IPL
-bhat <- unlist(fit$frail)
-delta <- (b2 - bhat[col(b2)])
-b.sig <- delta %*% fit$hmat[1:8, 1:8]  # b times sqrt(H)
+bhat <- unlist(ranef(fit))
+b.sig <- t(b2) %*% fit$hmat[1:8, 1:8]  # b times sqrt(H)
 taylor <- rowSums(b.sig^2)/2   # vector of b'H b/2
+aeq(taylor, debug$penalty2)
 
 # Look at how well the Taylor series does
 pen <- solve(sigma)
-simpen <- rowSums((b2 %*% pen)*b2/2) #penalty for each simulated b
+simpen <- colSums(b3 *(pen%*%b3))/2 #penalty for each simulated b
+aeq(simpen, debug$penalty1)
+
 #plot(coxll- simpen, fit$log[3] - taylor, 
 #     xlab="Actual PPL for simulated points", 
 #     ylab="Taylor series approximation")
 #abline(0,1)
 #
 
-#  To match the internal calculations of coxme, I need the uncorrected
-#  IPL as a centering constant
-fit2 <-  coxme(Surv(futime, status) ~ trt2 + (1 + trt2 | site), trdata)
-m2 <- fit2$loglik[2]
-errhat <- exp(coxll-m2) - exp(fit$log[3]+simpen- (taylor + m2))
+#And now I need the Gaussian integration contant and the t-density
+require(mvtnorm)
+tdens <- dmvt(t(b3), delta=unlist(ranef(fit)), sigma=hmat.inv, df=chidf)
+aeq(tdens, debug$tdens)
+ 
+# The normalization constant for the Gaussian penalty
+#  
+temp <- determinant(sigma, log=TRUE)
+gnorm <- -(4*log(2*pi) + .5*temp$sign *temp$modulus)
+aeq(gnorm, debug$gdens)
+
+m2 <- fit$loglik[2]
+errhat <- exp(coxll+gnorm -(simpen + tdens +m2)) - 
+         exp(fit$log[3]+ gnorm -(taylor + tdens + m2))
 if (!is.null(debug)) {
     aeq(errhat, debug$errhat)
     }
-
-all.equal(c(correction=mean(errhat), std=sqrt(var(errhat)/nsim)), fit$refine)

@@ -63,7 +63,7 @@ sfit3 <- coxme(Surv(time, status) ~ x + (1| f1/f2),
               vfixed=c(1,2))
 aeq(sfit2$log, sfit3$log)
 aeq(fixef(sfit2), fixef(sfit3))
-aeq(unlist(sfit3$frail), sfit2$frail[[1]] + sfit2$frail[[2]][c(1,1,2,2,3,3)])
+aeq(unlist(ranef(sfit3)), ranef(sfit2)[[1]] +ranef(sfit2)[[2]][c(1,1,2,2,3,3)])
 
 # Now for the Efron approx
 sfit <- coxme(Surv(time, status) ~ x + (1| f1/f2), data=simple, 

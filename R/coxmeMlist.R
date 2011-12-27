@@ -28,7 +28,8 @@ coxmeMlist <- function(varlist, rescale=TRUE, pdcheck=TRUE,  positive=TRUE) {
             groups <- G[[ngroup]]  #drop all but the last
             bname <- levels(groups)
             if (noname) varlist <- lapply(varlist, namefun, bname)
-            
+            if (any(sapply(varlist, function(x) inherits(x, "Matrix"))))
+                varlist <- lapply(varlist, function(x) as(x, "bdsmatrix"))
             tlist <- bdsmatrix.reconcile(varlist, bname)
             imap <- matrix(match(groups, dimnames(tlist[[1]])[[1]]))
             xmap <- NULL
@@ -39,7 +40,8 @@ coxmeMlist <- function(varlist, rescale=TRUE, pdcheck=TRUE,  positive=TRUE) {
             bname <- dimnames(X)[[2]]
             if (noname) varlist <- lapply(varlist, namefun, bname)
             tlist <- bdsmatrix.reconcile(varlist, bname)
-            # bdsmatrices are illegal, for now, for covariates
+            # sparse matrices (bdsmatrix or Matrix) are illegal, for now, 
+            #   for covariates
             tlist <- lapply(tlist, as.matrix)
             xmap <- match(dimnames(X)[[2]], bname)
             xmap <- matrix(rep(xmap, n), nrow=n, byrow=T)

@@ -1,5 +1,5 @@
 
-R version 2.13.0 (2011-04-13)
+R version 2.14.0 (2011-10-31)
 Copyright (C) 2011 The R Foundation for Statistical Computing
 ISBN 3-900051-07-0
 Platform: x86_64-unknown-linux-gnu (64-bit)
@@ -39,7 +39,25 @@ Type 'q()' to quit R.
 Loading required package: survival
 Loading required package: splines
 Loading required package: bdsmatrix
+
+Attaching package: 'bdsmatrix'
+
+The following object(s) are masked from 'package:base':
+
+    backsolve
+
 Loading required package: nlme
+Loading required package: Matrix
+Loading required package: lattice
+
+Attaching package: 'Matrix'
+
+The following object(s) are masked from 'package:base':
+
+    det
+
+Warning message:
+replacing previous import 'diag' when loading 'Matrix' 
 > options(na.action='na.exclude', contrasts=c('contr.treatment', 'contr.poly'))
 > aeq <- function(x,y, ...) all.equal(as.vector(x), as.vector(y), ...)
 > 
@@ -146,7 +164,7 @@ Loading required package: nlme
 > # iteration 1
 > fit1a <- coxme(Surv(time, status) ~ age + trt + (1 +trt |inst), simdata,
 +                iter=1, vfixed=c(.2, .1, .3))
-> aeq(step1, c(unlist(fit1a$frail), fixef(fit1a)))
+> aeq(step1, c(unlist(ranef(fit1a)), fixef(fit1a)))
 [1] TRUE
 > 
 > cox1.1<- coxph(Surv(time, status) ~ tempx + age + trt, simdata,
@@ -162,7 +180,7 @@ Loading required package: nlme
 > #iteration 2
 > fit2a <- coxme(Surv(time, status) ~ age + trt + (1 +trt |inst), simdata,
 +                iter=2, vfixed=c(.2, .1, .3))
-> aeq(step1+step2, c(unlist(fit2a$frail), fixef(fit2a)))
+> aeq(step1+step2, c(unlist(ranef(fit2a)), fixef(fit2a)))
 [1] TRUE
 > 
 > 
@@ -205,7 +223,7 @@ Loading required package: nlme
 > fit1b <- coxme(Surv(time, status) ~ age + trt + (1|inst/trt), simdata,
 +                iter=1, vfixed=vfix,
 +               varlist=coxmeMlist(list(mat1,mat2,mat3), pdcheck=F, rescale=F))
-> aeq(step1b, c(unlist(fit1b$frail), fixef(fit1b)))
+> aeq(step1b, c(unlist(ranef(fit1b)), fixef(fit1b)))
 [1] TRUE
 > 
 > 
@@ -217,7 +235,7 @@ Loading required package: nlme
 > fita <- coxme(Surv(time, status) ~ age + trt + (1+trt | inst), simdata)
 >  
 > # fitb has a hard time, by way of wandering into bad solutions
-> # vtemp <- ranef(fita)[[1]][c(1,4,2)]
+> # vtemp <- VarCorr(fita)[[1]][c(1,4,2)]
 > # vtemp[3] <- vtemp[3] * sqrt(vtemp[1] * vtemp[2])
 > #fitb <- coxme(Surv(time, status) ~ age + trt + (1|inst/trt), simdata,
 > #              vinit=vtemp,
@@ -278,10 +296,10 @@ Loading required package: nlme
 > aeq(fixef(fita), fixef(fitc), tol=1e-4)
 [1] TRUE
 > 
-> vtemp <- ranef(fita)[[1]][c(1,4,2)]
+> vtemp <- VarCorr(fita)[[1]][c(1,4,2)]
 > fitc2 <- coxme(Surv(time, status) ~ age + trt + (1|inst/trt), simdata,
 +               vfixed=vtemp, varlist=myvar(list(mat1, mat2, mat3)))
-> aeq(unlist(fita$frail),  map[1:18, 1:18] %*% unlist(fitc2$frail), tol=1e5)
+> aeq(unlist(ranef(fita)),  map[1:18, 1:18] %*% unlist(ranef(fitc2)), tol=1e5)
 [1] TRUE
 > aeq(fitc2$log, fita$log, tol=1e-5)
 [1] TRUE

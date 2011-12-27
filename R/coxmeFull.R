@@ -413,7 +413,7 @@ coxmeFull <- function(collapse=FALSE) {
         }
     wrapup <- function(theta, b, parms) {
         newtheta <- parms$theta
-        newtheta[!parms$fixed] <- exp(theta)
+        if (length(theta)) newtheta[!parms$fixed] <- exp(theta)
         
         if (parms$case==1) {
             theta <- list(c('(Shrinkage)' = newtheta[1]))
@@ -421,7 +421,7 @@ coxmeFull <- function(collapse=FALSE) {
             names(b) <- parms$xname
             return(list(theta =theta, b=list('1'=b)))
             }
-            
+
         if (parms$case==2) {
             names(newtheta) <- 'Intercept'
             names(b) <- parms$levellist[[1]]
@@ -454,7 +454,7 @@ coxmeFull <- function(collapse=FALSE) {
             intercept <- parms$intercept
             ngroup <- length(parms$nlevel)
             nvar <- parms$nvar
-            
+
             # Deal with b
             random <- split(b, rep(rep(1:ngroup, parms$nlevel), intercept +nvar))
             names(random) <- parms$gname

@@ -1,7 +1,8 @@
 
-R version 2.9.2 (2009-08-24)
-Copyright (C) 2009 The R Foundation for Statistical Computing
+R version 2.14.0 (2011-10-31)
+Copyright (C) 2011 The R Foundation for Statistical Computing
 ISBN 3-900051-07-0
+Platform: x86_64-unknown-linux-gnu (64-bit)
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
 You are welcome to redistribute it under certain conditions.
@@ -19,6 +20,25 @@ Type 'q()' to quit R.
 Loading required package: survival
 Loading required package: splines
 Loading required package: bdsmatrix
+
+Attaching package: 'bdsmatrix'
+
+The following object(s) are masked from 'package:base':
+
+    backsolve
+
+Loading required package: nlme
+Loading required package: Matrix
+Loading required package: lattice
+
+Attaching package: 'Matrix'
+
+The following object(s) are masked from 'package:base':
+
+    det
+
+Warning message:
+replacing previous import 'diag' when loading 'Matrix' 
 > aeq <- function(x,y) all.equal(as.vector(x), as.vector(y))
 > #
 > # Variable shrinkage
@@ -34,7 +54,7 @@ Loading required package: bdsmatrix
 > fit2 <- coxme(Surv(time, status) ~ age + (ecog0+ecog1+ecog2+ecog3 |1), lung,
 +               vfixed=.5)
 > 
-> aeq(fit1$coef, c(coef(fit2)$fixed, unlist(fit2$frail)))
+> aeq(fit1$coef, c(fixef(fit2), unlist(ranef(fit2))))
 [1] TRUE
 > indx <- c(5,1,2,3,4) #in coxme, shrinkage variables are first
 > all.equal(fit1$var, as.matrix(fit2$var)[indx, indx])
@@ -53,7 +73,9 @@ Loading required package: bdsmatrix
 +               varlist=dummy)
 > all.equal(fit4$log, fit5$log)
 [1] TRUE
-> all.equal(fit4$coef, fit5$coef, check.attributes=FALSE) #names will differ
+> aeq(fixef(fit4), fixef(fit5))
+[1] TRUE
+> all.equal(ranef(fit4), ranef(fit5), check.attributes=FALSE) #names will differ
 [1] TRUE
 > 
 > 

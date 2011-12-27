@@ -1,6 +1,7 @@
 \documentclass{article}
 \usepackage{noweb}
 \usepackage[pdftex]{graphicx}
+\usepackage{amsmath}
 %\usepackage{times}
 \addtolength{\textwidth}{1in}
 \addtolength{\oddsidemargin}{-.5in}

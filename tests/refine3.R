@@ -36,8 +36,8 @@ fit1 <- coxme(Surv(futime, status) ~ trt1 + (1 + trt1 | site), trdata,
               ties=approx)
 fit2 <- coxme(Surv(futime, status) ~ trt2 + (1 + trt2 | site), trdata,
               ties=approx)
-# I don't yet understand why fit1 and fit2 have different iteration
-#  paths
+# Fit1 and fit2 are actually different models, with different 
+#  iteration paths and maxima.
 
 # Test out loglik
 eta <- fit1$linear
@@ -46,13 +46,13 @@ fit1b <- coxph(Surv(futime, status) ~ eta, trdata, init=1, iter=0,
 aeq(fit1b$loglik[2], fit1$loglik[3]+fit1$penal)
 
 # First derivatives
-temp <- ranef(fit1)[[1]]
+temp <- VarCorr(fit1)[[1]]
 sigma <- diag(c(rep(temp[1],4), rep(temp[4],4)))
 sigma[cbind(1:4,5:8)] <- temp[3]* sqrt(temp[1] * temp[4])
 sigma[cbind(5:8,1:4)] <- temp[3]* sqrt(temp[1] * temp[4])
 pen <- matrix(0., 9,9)
 pen[1:8, 1:8] <- solve(sigma)
-pcoef <- c(unlist(fit1$frail), fixef(fit1))
+pcoef <- c(unlist(ranef(fit1)), fixef(fit1))
 aeq(pcoef %*% pen %*% pcoef/2, fit1$penal)
 
 xx <- 1* with(trdata, cbind(site==1, site==2, site==3, site==4))

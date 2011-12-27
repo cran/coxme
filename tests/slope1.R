@@ -37,21 +37,27 @@ for (i in 1:9) {
     coef0[,i] <- fit0$coef
     }
 
+# Several of these fits will differ in the last few digits on a 
+#   64 bit vs 32 bit Intel processer.  The loglike is very
+#   flat on top so tiny changes in the compute path lead to a small
+#   change in the final solution.  Hence the "digits" argument.
 fit0 <- coxph(Surv(time, status) ~ age + trt, simdata)
 fit1 <- coxme(Surv(time, status) ~ age + trt + (1|inst), simdata)
-print(fit1, rcoef=TRUE)
-fit2 <- coxme(Surv(time, status) ~ age + trt + (1|inst/trt), simdata)
-print(fit2, rcoef=TRUE)
+print(fit1, rcoef=TRUE, digits=4)
 
+fit2 <- coxme(Surv(time, status) ~ age + trt + (1|inst/trt), simdata)
+print(fit2, rcoef=TRUE, digits=3)
+
+# And so will this one
 fit3 <- coxme(Surv(time, status) ~ age + trt + (1|inst) + (trt|inst),simdata)
-print(fit3, rcoef=TRUE)
+print(fit3, rcoef=TRUE, digits=3)
 
 fit4 <- coxme(Surv(time, status) ~ age + trt + (1 +trt |inst), simdata)
 
 sfit0 <- coxph(Surv(time, status) ~ age + trt + strata(inst), simdata)
 sfit1 <- coxme(Surv(time, status) ~ age + trt + (trt|inst) + strata(inst),
                simdata)
-print(sfit1, rcoef=TRUE)
+print(sfit1, rcoef=TRUE, digits=4)
 
 # Check that the start,stop code does the same
 dummy <- runif(nrow(simdata), -4, -1)  #all start times before first event
@@ -61,9 +67,9 @@ all.equal(fit4b$coef, fit4$coef, tolerance=1e-7) # different order of internal
                                                # sums => tiny difference
 
 #Comparison plot
-y <- cbind(slope, NA, coef0[2,], fixef(sfit1)[2] + unlist(sfit1$frail),
-           fixef(fit3)[2] + fit3$frail[[2]],
-           fixef(fit4)[2] + fit4$frail[[1]][,2])
+y <- cbind(slope, NA, coef0[2,], fixef(sfit1)[2] + unlist(ranef(sfit1)),
+           fixef(fit3)[2] + ranef(fit3)[[2]],
+           fixef(fit4)[2] + ranef(fit4)[[1]][,2])
 matplot(c(1, 1.5, 2:5), t(y), type='b', xaxt='n', xlab="Simulation", 
         ylab="Treatment coefficient", lty=1)
 axis(1, 1:5, c("Sim", "Separate", "Strata", "Uncor", "Corr"))
@@ -91,8 +97,8 @@ igchol <- function(x) {
     }
 
 # For fit2
-vtemp <- unlist(ranef(fit2))
-names(vtemp) <- names(ranef(fit2))
+vtemp <- unlist(VarCorr(fit2))
+names(vtemp) <- names(VarCorr(fit2))
 fit2a <- coxme(Surv(time, status) ~ age + trt + (1|inst/trt), simdata,
                iter=0, vfixed=vtemp)
 temp <- strata(simdata$inst, simdata$trt, sep='/', shortlabel=TRUE)
@@ -105,7 +111,7 @@ imat2 <- apply(dt2$imat, 1:2, sum) + diag(c(rep(1/vtemp, c(18,9)),0,0))
 aeq(imat2, as.matrix(igchol(fit2a$hmat)))
 
 # For fit3
-vtemp <- as.vector(unlist(ranef(fit3)))  #name not needed
+vtemp <- as.vector(unlist(VarCorr(fit3)))  #name not needed
 fit3a <- coxme(Surv(time, status) ~ age + trt + (1|inst) + (trt|inst),
                simdata, iter=0, vfixed=as.list(vtemp))
 cfit <- coxph(Surv(time, status) ~ factor(inst) * trt + age, simdata,

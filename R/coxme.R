@@ -140,7 +140,8 @@ coxme <- function(formula,  data,
             }
         }
         
-    sapply(varlist, function(x) {
+    #check validity (result is never used)
+    check <- sapply(varlist, function(x) {
            fname <- c("initialize", "generate", "wrapup")
            indx <- match(fname, names(x))
            if (any(is.na(x)))
@@ -232,7 +233,7 @@ coxme <- function(formula,  data,
     fmat <- zmat <- matrix(0, nrow=n, ncol=0)
     ntheta <- integer(nrandom)
     ncoef  <- matrix(0L, nrandom, 2, dimnames=list(NULL, c("intercept", "slope")))
-    theta <-  NULL   #initial values of parameters to iterate over
+    itheta <-  NULL   #initial values of parameters to iterate over
 
     for (i in 1:nrandom) {
         f2 <- formula2(flist$random[[i]])
@@ -250,7 +251,7 @@ coxme <- function(formula,  data,
             stop(paste("In random term ", i, ": ", ifun$error, sep=''))
         vparm[[i]] <- ifun$parms
 
-        theta <- c(theta, ifun$theta)
+        itheta <- c(itheta, ifun$theta)
         ntheta[i] <- length(ifun$theta)
 
         if (f2$intercept) {
@@ -288,7 +289,7 @@ coxme <- function(formula,  data,
     fit <- coxme.fit(X, Y, strats, offset, init, control, weights=weights,
                      ties=ties, row.names(m),
                      fmat, zmat, varlist, vparm, 
-                     theta, ntheta, ncoef, refine.n)
+                     itheta, ntheta, ncoef, refine.n)
     if (is.character(fit)) {
         fit <- list(fail=fit)
         oldClass(fit) <- 'coxme'
@@ -303,17 +304,16 @@ coxme <- function(formula,  data,
         warning(msg)
         }
     if (length(fcoef) >0) {
-        names(fcoef) <- dimnames(X)[[2]]
+        names(fit$coefficients) <- dimnames(X)[[2]]
         }
     rlinear <- rep(0., nrow(Y))
-    indx <- 0
     if (length(fmat)) {
         for (i in 1:ncol(fmat)) {
-            rlinear <- rlinear + fit$frail[fmat[,i]+indx]
-            indx <- indx + max(fmat[,i])
+            rlinear <- rlinear + fit$frail[fmat[,i]]
             }
         }
     if (length(zmat)) {
+        indx <- if (length(fmat)>0) max(fmat) else 0
         for (i in 1:ncol(zmat))
             rlinear <- rlinear + fit$frail[indx+i]*zmat[,i]
         }
@@ -322,8 +322,8 @@ coxme <- function(formula,  data,
     else fit$linear.predictor <- as.vector(rlinear + c(X %*% fit$coef))
     newtheta <- random.coef <- list()  
     nrandom <- length(varlist)
-    sindex <- rep(1:nrandom, ntheta) #which thetas to which terms
-    bindex <- rep(1:nrandom, rowSums(ncoef)) # which b's to which terms
+    sindex <- rep(1:nrandom, ntheta) # which thetas to which terms
+    bindex <- rep(row(ncoef), ncoef) # which b's to which terms
     for (i in 1:nrandom) {
         temp <- varlist[[i]]$wrapup(fit$theta[sindex==i], fit$frail[bindex==i], 
                                     vparm[[i]])
@@ -334,10 +334,9 @@ coxme <- function(formula,  data,
             }
         random.coef <- c(random.coef, temp$b)
         }
-
-    fit$coefficients <- list(fixed=fcoef, random=newtheta)
     fit$frail <- random.coef
-    fit$beta <- NULL
+
+    fit$vcoef <- newtheta
     fit$theta <- NULL
     fit$n <- c(sum(Y[,ncol(Y)]), nrow(Y))
     fit$terms <- Terms

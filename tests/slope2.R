@@ -49,7 +49,7 @@ mat2 <-  bdsBlock(idlist, rep(1:9, each=2))
 fit2b <- coxme(Surv(time, status) ~ age + trt + (1|inst/trt), simdata,
                varlist=list(mat1, mat2), vinit=c(.1, .1))
 aeq(fit2$log, fit2b$log)
-aeq(as.matrix(fit2$var), as.matrix(fit2b$var))
+aeq(as.matrix(fit2$var), as.matrix(fit2b$var), tol=1e-7)
 aeq(fixef(fit2), fixef(fit2b))
 
 # Check fit3
@@ -63,7 +63,7 @@ fit3b <-  coxme(Surv(time, status) ~ age + trt + (1|inst/trt), simdata,
 
 aeq(fit3$log, fit3b$log)
 aeq(fixef(fit3), fixef(fit3b))
-all.equal(unlist(ranef(fit3)), unlist(ranef(fit3b)), tolerance=1e-7, 
+all.equal(unlist(VarCorr(fit3)), unlist(VarCorr(fit3b)), tolerance=1e-7, 
           check.attributes=FALSE)
 # This function should map between coefficients
 map <- matrix(0, 20,20)
@@ -75,5 +75,6 @@ for (i in 1:9) {
 map[19,19] <- 1
 map[20,20] <- 1
 
-aeq(c(unlist(fit3$frail)), c(map[1:18,1:18] %*% unlist(fit3b$frail)))
-aeq(as.matrix(fit3$var), map %*% as.matrix(fit3b$var) %*% t(map))
+aeq(c(unlist(ranef(fit3))), c(map[1:18,1:18] %*% unlist(ranef(fit3b))))
+aeq(as.matrix(fit3$var), map %*% as.matrix(fit3b$var) %*% t(map),
+    tol=1e-7)

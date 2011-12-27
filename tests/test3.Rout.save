@@ -1,5 +1,5 @@
 
-R version 2.13.0 (2011-04-13)
+R version 2.14.0 (2011-10-31)
 Copyright (C) 2011 The R Foundation for Statistical Computing
 ISBN 3-900051-07-0
 Platform: x86_64-unknown-linux-gnu (64-bit)
@@ -20,7 +20,25 @@ Type 'q()' to quit R.
 Loading required package: survival
 Loading required package: splines
 Loading required package: bdsmatrix
+
+Attaching package: 'bdsmatrix'
+
+The following object(s) are masked from 'package:base':
+
+    backsolve
+
 Loading required package: nlme
+Loading required package: Matrix
+Loading required package: lattice
+
+Attaching package: 'Matrix'
+
+The following object(s) are masked from 'package:base':
+
+    det
+
+Warning message:
+replacing previous import 'diag' when loading 'Matrix' 
 > options(na.action='na.exclude', contrasts=c('contr.treatment', 'contr.poly'))
 > aeq <- function(x,y) all.equal(as.vector(x), as.vector(y))
 > 
@@ -74,7 +92,7 @@ Loading required package: nlme
 > 
 > temp <- solve(fit0$hmat, fit0$u)
 > temp[1:4] <- temp[1:4] - mean(temp[1:4])
-> aeq(temp, c(unlist(fit1$frail), coef(fit1)$fixed))
+> aeq(temp, c(unlist(ranef(fit1)), fixef(fit1)))
 [1] TRUE
 > 
 > # Now test out Breslow/cox

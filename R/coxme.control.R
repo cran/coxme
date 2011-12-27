@@ -8,7 +8,9 @@ coxme.control <- function(eps=1e-8,
 			  inner.iter=Quote(max(4, fit0$iter+1)),
 			  sparse.calc=NULL,
                           optpar=list(method='BFGS', 
-                                      control=list(reltol=1e-5))) {
+                                      control=list(reltol=1e-5)),
+                          refine.df = 4, refine.detail=FALSE)
+                              {
     if (iter.max <0) stop("Invalid value for iterations")
     if (inner.iter<1) stop("Invalid value for inner iterations")
     if (eps <=0) stop ("Invalid convergence criteria")
@@ -23,5 +25,5 @@ coxme.control <- function(eps=1e-8,
         }
     list(eps=eps, toler.chol=toler.chol, iter.max=iter.max,
 	 inner.iter=inner.iter, sparse.calc=sparse.calc,
-         optpar=optpar)
+         optpar=optpar, refine.df=refine.df, refine.detail=refine.detail)
     }

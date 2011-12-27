@@ -118,7 +118,7 @@ step1 <- solve(fit0a$hmat, fit0a$u)
 # iteration 1
 fit1a <- coxme(Surv(time, status) ~ age + trt + (1 +trt |inst), simdata,
                iter=1, vfixed=c(.2, .1, .3))
-aeq(step1, c(unlist(fit1a$frail), fixef(fit1a)))
+aeq(step1, c(unlist(ranef(fit1a)), fixef(fit1a)))
 
 cox1.1<- coxph(Surv(time, status) ~ tempx + age + trt, simdata,
              iter=0, x=T, init=step1)
@@ -131,7 +131,7 @@ step2 <- solve(fit1a$hmat, fit1a$u)
 #iteration 2
 fit2a <- coxme(Surv(time, status) ~ age + trt + (1 +trt |inst), simdata,
                iter=2, vfixed=c(.2, .1, .3))
-aeq(step1+step2, c(unlist(fit2a$frail), fixef(fit2a)))
+aeq(step1+step2, c(unlist(ranef(fit2a)), fixef(fit2a)))
 
 
 
@@ -169,7 +169,7 @@ step1b <- solve(fit0b$hmat, fit0b$u)
 fit1b <- coxme(Surv(time, status) ~ age + trt + (1|inst/trt), simdata,
                iter=1, vfixed=vfix,
               varlist=coxmeMlist(list(mat1,mat2,mat3), pdcheck=F, rescale=F))
-aeq(step1b, c(unlist(fit1b$frail), fixef(fit1b)))
+aeq(step1b, c(unlist(ranef(fit1b)), fixef(fit1b)))
 
 
 # And now the full fit
@@ -180,7 +180,7 @@ aeq(step1b, c(unlist(fit1b$frail), fixef(fit1b)))
 fita <- coxme(Surv(time, status) ~ age + trt + (1+trt | inst), simdata)
  
 # fitb has a hard time, by way of wandering into bad solutions
-# vtemp <- ranef(fita)[[1]][c(1,4,2)]
+# vtemp <- VarCorr(fita)[[1]][c(1,4,2)]
 # vtemp[3] <- vtemp[3] * sqrt(vtemp[1] * vtemp[2])
 #fitb <- coxme(Surv(time, status) ~ age + trt + (1|inst/trt), simdata,
 #              vinit=vtemp,
@@ -239,8 +239,8 @@ fitc <- coxme(Surv(time, status) ~ age + trt + (1|inst/trt), simdata,
 aeq(fitc$log, fita$log, tol=1e-5)
 aeq(fixef(fita), fixef(fitc), tol=1e-4)
 
-vtemp <- ranef(fita)[[1]][c(1,4,2)]
+vtemp <- VarCorr(fita)[[1]][c(1,4,2)]
 fitc2 <- coxme(Surv(time, status) ~ age + trt + (1|inst/trt), simdata,
               vfixed=vtemp, varlist=myvar(list(mat1, mat2, mat3)))
-aeq(unlist(fita$frail),  map[1:18, 1:18] %*% unlist(fitc2$frail), tol=1e5)
+aeq(unlist(ranef(fita)),  map[1:18, 1:18] %*% unlist(ranef(fitc2)), tol=1e5)
 aeq(fitc2$log, fita$log, tol=1e-5)

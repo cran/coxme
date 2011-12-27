@@ -1,5 +1,5 @@
 
-R version 2.13.0 (2011-04-13)
+R version 2.14.0 (2011-10-31)
 Copyright (C) 2011 The R Foundation for Statistical Computing
 ISBN 3-900051-07-0
 Platform: x86_64-unknown-linux-gnu (64-bit)
@@ -20,7 +20,25 @@ Type 'q()' to quit R.
 Loading required package: survival
 Loading required package: splines
 Loading required package: bdsmatrix
+
+Attaching package: 'bdsmatrix'
+
+The following object(s) are masked from 'package:base':
+
+    backsolve
+
 Loading required package: nlme
+Loading required package: Matrix
+Loading required package: lattice
+
+Attaching package: 'Matrix'
+
+The following object(s) are masked from 'package:base':
+
+    det
+
+Warning message:
+replacing previous import 'diag' when loading 'Matrix' 
 > aeq <- function(x,y) all.equal(as.vector(x), as.vector(y))
 > #
 > # Ensure that a call with two terms and a call with one term but zero
@@ -83,11 +101,11 @@ Loading required package: nlme
 > fit1<-  coxme(Surv(futime, status) ~ trt1 + (1 | site) + (trt1|site), smdata,
 +               ties=approx)
 > fit2 <- coxme(Surv(futime, status) ~ trt1 + (1+trt1 | site), smdata,
-+               ties=approx, varlist=myvar(c(unlist(ranef(fit1)), 0)))
++               ties=approx, varlist=myvar(c(unlist(VarCorr(fit1)), 0)))
 > 
 > aeq(fit1$log, fit2$log)
 [1] TRUE
-> aeq(unlist(fit1$frail), unlist(fit2$frail))
+> aeq(unlist(ranef(fit1)), unlist(ranef(fit2)))
 [1] TRUE
 > aeq(fixef(fit1), fixef(fit2))
 [1] TRUE
@@ -96,13 +114,13 @@ Loading required package: nlme
 > dummy <- runif(nrow(smdata), -4, -1)  #all start times before any stop times
 > fit1b <- coxme(Surv(dummy, futime, status) ~ trt1 + (1 | site) + (trt1|site), 
 +                smdata, ties=approx)
-> all.equal(fit1b$frail, fit1$frail)
+> all.equal(ranef(fit1b), ranef(fit1))
 [1] TRUE
 > aeq(fit1$loglik, fit1b$loglik)
 [1] TRUE
 > 
 > fit2b <- coxme(Surv(dummy, futime, status) ~ trt1 + (1+trt1 | site), smdata,
-+               ties=approx, varlist=myvar(c(unlist(ranef(fit1)), 0)))
++               ties=approx, varlist=myvar(c(unlist(VarCorr(fit1)), 0)))
 > all.equal(fit2b$loglik, fit2$loglik)
 [1] TRUE
 > all.equal(coef(fit2b), coef(fit2))

@@ -12,7 +12,8 @@ Auxillary function which packages the optional parameters of a
 coxme.control(eps = 1e-08, toler.chol = .Machine$double.eps^0.75,
 iter.max = 20, inner.iter = Quote(max(4, fit0$iter+1)),
 sparse.calc = NULL,
-optpar = list(method = "BFGS", control=list(reltol = 1e-5)))
+optpar = list(method = "BFGS", control=list(reltol = 1e-5)),
+refine.df=4, refine.detail=FALSE)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -42,7 +43,14 @@ optpar = list(method = "BFGS", control=list(reltol = 1e-5)))
 }
   \item{optpar}{
     parameters passed forward to the \code{optim} routine.
-}
+  }
+  \item{refine.df}{the degrees of freedom for the t-distribution
+    used to draw random samples
+    for the refine.n option}
+  \item{refine.detail}{this option is mostly for debugging.  If TRUE
+    then an extra component \code{refine.detail} will be present in
+    the output which contains intermediate variables from the
+    iterative refinement calculation.}
 }
 \details{
  The main flow of \code{coxme} is to use the \code{optim} routine to

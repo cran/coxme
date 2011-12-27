@@ -1,6 +1,7 @@
 \documentclass{article}
 \usepackage{noweb}
 \usepackage[pdftex]{graphicx}
+\usepackage{amsmath}
 %\usepackage{times}
 \addtolength{\textwidth}{1in}
 \addtolength{\oddsidemargin}{-.5in}
@@ -369,7 +370,7 @@ $C$ and whether or not the left hand side contained an intercept, and
 appropriate portions of the initial values (vinit) or fixed variance
 (vfixed) specification.
 It returns corresponding columns of $F$, $Z$ and a mapping [[zmap]] for
-each column of $Z$,  a vector [[theta]] containing
+each column of $Z$,  a vector [[itheta]] containing
 the initial values for the non-fixed variance parameters (possibly on
 a transformed scale), and a private 
 parameter list which will be passed forward to the matching [[generate]]
@@ -461,7 +462,8 @@ if (!is.null(names(varlist))) { # put it in the right order
         }
     }
     
-sapply(varlist, function(x) {
+#check validity (result is never used)
+check <- sapply(varlist, function(x) {
        fname <- c("initialize", "generate", "wrapup")
        indx <- match(fname, names(x))
        if (any(is.na(x)))
@@ -490,7 +492,7 @@ be the identity-by-descent (IBD) matrix for a particular locus.
 
 Now we proceed through the list one element at a time, and do the necessary
 setup.
-The [[theta]] vector will contain starting values for all of the
+The [[itheta]] vector will contain starting values for all of the
 variance parameters that are \emph{not} fixed, and [[ntheta[i]]] the
 number of values that each random term contributed.
 The final $\theta$ vector will be null if all the parameters are fixed. 
@@ -506,7 +508,7 @@ The definition of 4 helper functions is deferred until later.
 fmat <- zmat <- matrix(0, nrow=n, ncol=0)
 ntheta <- integer(nrandom)
 ncoef  <- matrix(0L, nrandom, 2, dimnames=list(NULL, c("intercept", "slope")))
-theta <-  NULL   #initial values of parameters to iterate over
+itheta <-  NULL   #initial values of parameters to iterate over
 
 for (i in 1:nrandom) {
     f2 <- formula2(flist$random[[i]])
@@ -524,7 +526,7 @@ for (i in 1:nrandom) {
         stop(paste("In random term ", i, ": ", ifun$error, sep=''))
     vparm[[i]] <- ifun$parms
 
-    theta <- c(theta, ifun$theta)
+    itheta <- c(itheta, ifun$theta)
     ntheta[i] <- length(ifun$theta)
 
     if (f2$intercept) {
@@ -643,8 +645,8 @@ managable chunks.
 fit <- coxme.fit(X, Y, strats, offset, init, control, weights=weights,
                  ties=ties, row.names(m),
                  fmat, zmat, varlist, vparm, 
-                 theta, ntheta, ncoef, refine.n)
-@ 
+                 itheta, ntheta, ncoef, refine.n)
+@  
 
 Then we finish up by packaging up the results for a user.
 The first few lines are the case where a fatal error occured, in which
@@ -660,12 +662,9 @@ if (is.character(fit)) {
 
 Now add labels to the fixed and random coefficients.
 The [[coefficients]] portion of the returned object conttains the
-values for $\hat \beta$ (fixed) and for the variances $\hat \theta$.
-The [[frail]] component contains the values for $\hat b$.
-(Why not call the returned variable [[b]]?  First because single letter
-components can cause unexpected grief later, [[fit$b]] might end up
-fetching something else that starts with a `b'.  Second because the  %'`
-original coxme function used this.)
+values for $\hat \beta$ (fixed). and for the variances $\hat \theta$.
+The [[frail]] component contains the values for $\hat b$, a
+historical label.
 <<finish-up>>=
 fcoef <- fit$coefficients
 nvar <- length(fcoef)
@@ -676,22 +675,21 @@ if (length(fcoef)>0 && any(is.na(fcoef))) {
     warning(msg)
     }
 if (length(fcoef) >0) {
-    names(fcoef) <- dimnames(X)[[2]]
+    names(fit$coefficients) <- dimnames(X)[[2]]
     }
 @ 
 
 Add up the part of the linear predictor due to random terms, 
-and add this to the fixed portion to get a linear predictor
+and add this to the fixed portion to get an overall linear predictor.
 <<finish-up>>=
 rlinear <- rep(0., nrow(Y))
-indx <- 0
 if (length(fmat)) {
     for (i in 1:ncol(fmat)) {
-        rlinear <- rlinear + fit$frail[fmat[,i]+indx]
-        indx <- indx + max(fmat[,i])
+        rlinear <- rlinear + fit$frail[fmat[,i]]
         }
     }
 if (length(zmat)) {
+    indx <- if (length(fmat)>0) max(fmat) else 0
     for (i in 1:ncol(zmat))
         rlinear <- rlinear + fit$frail[indx+i]*zmat[,i]
     }
@@ -705,11 +703,26 @@ Our last action for the random terms is to call the
 $\theta$ back to the user's scale, re-insert (if needed)  %'
 any fixed parameters, label the vector, and label/arrange
 the random coefficients $b$.
+
+Intercept terms always come first in the random coefficients.
+In a model with \texttt{(trt|group) + (1|group)} on the
+right, the ncoef object will be
+\begin{verbatim}
+     intercept slope
+[1,]         0     5
+[2,]         5     0
+\end{verbatim}
+which means that the first 5 elements of $b$= \verb!fit$frail!
+belong to term2, and the second five to term 1. (Also that
+my example data had 5 levels for the group variable).
+The creation of [[bindex]] below depends on the fact that R
+stores matrices in row major order so it will go through
+the intercepts first and the other random coefficients second.
 <<finish-up>>=
 newtheta <- random.coef <- list()  
 nrandom <- length(varlist)
-sindex <- rep(1:nrandom, ntheta) #which thetas to which terms
-bindex <- rep(1:nrandom, rowSums(ncoef)) # which b's to which terms
+sindex <- rep(1:nrandom, ntheta) # which thetas to which terms
+bindex <- rep(row(ncoef), ncoef) # which b's to which terms
 for (i in 1:nrandom) {
     temp <- varlist[[i]]$wrapup(fit$theta[sindex==i], fit$frail[bindex==i], 
                                 vparm[[i]])
@@ -720,10 +733,9 @@ for (i in 1:nrandom) {
         }
     random.coef <- c(random.coef, temp$b)
     }
-
-fit$coefficients <- list(fixed=fcoef, random=newtheta)
 fit$frail <- random.coef
-fit$beta <- NULL
+
+fit$vcoef <- newtheta
 fit$theta <- NULL
 @ 
  
@@ -1862,7 +1874,7 @@ for two levels of a factor, then we assume that $\sigma_2^2= \sigma_3^2$,
 $\sigma_{12}=\sigma_{13}$ and $\sigma_{23}=0$; 
 from a parameter count view they act like a single variable.
 This makes no change at all in the number of coefficients $b$ or in the 
-structure of their covariance matrix in equation \ref{varcov}.
+structure of their covariance matrix in equation \ref{eq:varcov}.
 But we now need to have a ``real'' $\theta$ vector containing just 3 parameters,
 an expanded one [[etheta]] containing all 6 terms, and a mapping between them.
 
@@ -2086,7 +2098,7 @@ For cases 1 and 2 adding names is almost all we need to do.
 <<coxmeFull-wrapup>>=
 wrapup <- function(theta, b, parms) {
     newtheta <- parms$theta
-    newtheta[!parms$fixed] <- exp(theta)
+    if (length(theta)) newtheta[!parms$fixed] <- exp(theta)
     
     if (parms$case==1) {
         theta <- list(c('(Shrinkage)' = newtheta[1]))
@@ -2094,7 +2106,7 @@ wrapup <- function(theta, b, parms) {
         names(b) <- parms$xname
         return(list(theta =theta, b=list('1'=b)))
         }
-        
+
     if (parms$case==2) {
         names(newtheta) <- 'Intercept'
         names(b) <- parms$levellist[[1]]
@@ -2137,7 +2149,7 @@ The last case is of course the most complicated, it has both covariates
 and groupings.
 For a complicated random effect [[(1+ age |institution/sex)]] it should return
 a two element list for [[theta]] with names `institution' and
-1institution/sex', each of which contains a $2 \times 2$ 
+`institution/sex', each of which contains a $2 \times 2$ 
 matrix with variances on
 the diagonal and correlations off the diagonal.
 (We are echoing the desired form for the printout).
@@ -2158,7 +2170,7 @@ It may be a matrix of one column.
         intercept <- parms$intercept
         ngroup <- length(parms$nlevel)
         nvar <- parms$nvar
-        
+
         # Deal with b
         random <- split(b, rep(rep(1:ngroup, parms$nlevel), intercept +nvar))
         names(random) <- parms$gname
@@ -2304,7 +2316,8 @@ initialize <- function(vinit, fixed, intercept, G, X, sparse) {
         groups <- G[[ngroup]]  #drop all but the last
         bname <- levels(groups)
         if (noname) varlist <- lapply(varlist, namefun, bname)
-        
+        if (any(sapply(varlist, function(x) inherits(x, "Matrix"))))
+            varlist <- lapply(varlist, function(x) as(x, "bdsmatrix"))
         tlist <- bdsmatrix.reconcile(varlist, bname)
         imap <- matrix(match(groups, dimnames(tlist[[1]])[[1]]))
         xmap <- NULL
@@ -2315,7 +2328,8 @@ initialize <- function(vinit, fixed, intercept, G, X, sparse) {
         bname <- dimnames(X)[[2]]
         if (noname) varlist <- lapply(varlist, namefun, bname)
         tlist <- bdsmatrix.reconcile(varlist, bname)
-        # bdsmatrices are illegal, for now, for covariates
+        # sparse matrices (bdsmatrix or Matrix) are illegal, for now, 
+        #   for covariates
         tlist <- lapply(tlist, as.matrix)
         xmap <- match(dimnames(X)[[2]], bname)
         xmap <- matrix(rep(xmap, n), nrow=n, byrow=T)
@@ -2466,7 +2480,7 @@ values for $\beta$ and $b$
 
 The overall outline of the routine is
 <<coxme.fit>>=
-<<coxme-setup>>
+    <<coxme-setup>>
     <<null-fit>>
     <<define-penalty>>
     <<coxfit6a-call>>
@@ -2544,7 +2558,7 @@ where [[g1]] has two common and 60 uncommon levels, [[g2]] has 5
 levels and [[g3]] has 8.
 (A complicated random effects model I admit.)
 The first variance matrix is required to be of a [[bsdmatrix]]
-form with an [[rmat]] slot of dimension $124 \times 66$, call this $T$.
+form with an [[rmat]] slot of dimension $126 \times 66$, call this $T$.
 The variance structure for the other two terms, call them $U$ and
 $V$, can be of any matrix type.
 The final bdsmatrix will have the block-diagonal portions for the
@@ -2791,53 +2805,76 @@ estimate. The arguments in this case are
   \item[rfile] either 'coxfit6d' or 'agfit6d'
   \item[beta] the final solution vector $(b, \beta)$, though only $\beta$
     is used.
-  \item[gkmat] the final variance-covariance matrix at the solution
-  \item[bmat] matrix of normal 0/1 random variables with nfrail rows (dimension
-    of beta and of gkmat) and refine.n columns.  
-    Each column of the product [[gkmat %*% bmat]] is a random Gaussian draw
-    with correlation [[kmat]].
+  \item[bmat] matrix of trial values for the random coefficients.
+    Should have nfrail rows and refine.n columns.
   \item[loglik] log-likelihoods at the random points
 \end{description}
 
 The routine calculates the log-lik for a succession of Cox models, each
 one using one of the random draws as it's random effect.       %'
-The second part of the calculation is later in the code since it needs [[hmat]],
-which we haven't constructed yet.    %'
+The set of trial values is drawn from a t-distribution with
+refine.df degrees of freedom, centered at the observed
+random coefficients and with variance hmat-inverse.
+Now if a random colum vector $X$ has the identity variance
+matrix, then $CX$ have variance $CC'$.    %'
+To get the variance we want we need a matrix
+$C$ such that 
+$CC' = (H_{bb})^{-1}$  where $H_{bb}$ is the portion of.%'
+of the Hessian matrix $H$ corresponding to the random effects.
+The [[bmat]] matrix below has such a random sample in each column.
+We already have the cholesky decompostion $LDL'$ of $H$ in hand; %'
+the decomposition of the upper left corner is the upper left
+corner of the decompostion.
+The inverse matrix is (L-inverse)' D-inverse (L-inverse), which %'
+means we want to backsolve with respect to the upper triangular
+portion. 
+
+The natural way to generate t-variates is to use the mvtnorm
+library; however, it expects $H^{-1}$ which may be a dense matrix,
+we already have the sparse cholesky of $H$ [[hmat]], 
+and so we essentially duplicate the lines of rmvt and dmvt
+that occur after matrix decomposition.  For further details
+see the vignette on laplace approximations.
 <<refine>>=
 if (refine.n > 0) {
+    rdf <- control$refine.df
     nfrail <- ncol(gkmat)
+    hmatb <- hmat[1:nfrail, 1:nfrail]
+    #create the random t-variate with variance H-inverse
     bmat <- matrix(rnorm(nfrail*refine.n), ncol=refine.n)
+    bmat <- backsolve(hmatb, bmat, upper=TRUE) /
+        rep(sqrt(rchisq(refine.n, df=rdf)/rdf), each=nfrail)
+    bmat2 <- bmat + fit$beta[1:nfrail]  #recenter
 
     rfit <- .C(rfile,
                as.integer(refine.n),
                as.double(fit$beta),
-               as.double(gkmat %*% bmat),
-               loglik = double(refine.n))
-    }
-@ 
+               as.double(bmat2),
+               loglik = double(refine.n), dup=FALSE)
 
-The second two terms for the calculation are quadratic forms.  
-Mathematically, the actual correction is the mean of 
-[[exp(rfit$loglik) - exp[[fit$loglik + rterm2 - rterm3]].  
-However, many of these will be huge negative numbers and the
-exponentials would become exact zeros, leaving no digits of
-precision in the difference. 
-The Laplace approximation to the integrated log-likelihood is
-based on the assumption that mean of the first term is 
-[[exp(ilik)]], so that is a natural centering value, i.e.,
-[[exp(rfit$loglik - ilik)]] should give numbers centered around 1.
-<<refine2>>=
-if (refine.n > 0) {
-    nfrail <- ncol(gkmat)
-    rterm2 <- colSums(bmat^2)/2
-    delta  <- fit$beta[1:nfrail] - gkmat %*% bmat
-    rterm3 <- rowSums((t(delta) %*% hmat[1:nfrail, 1:nfrail])^2)/2
-    temp <- cbind(rfit$loglik, fit$loglik[2] +rterm2 - rterm3)
-    errhat <- exp(temp[,1]- ilik) - exp(temp[,2]- ilik)
-    ilik  <- ilik + log(1+ mean(errhat))
-    r.correct <- c(correction= mean(errhat), 
-                           std =sqrt(var(errhat)/refine.n))
-    }
+    # Penalty terms
+    penalty1 <- colSums(bmat2*(ikmat %*% bmat2))/2
+    penalty2 <- rowSums((t(bmat) %*% hmatb)^2 )/2
+
+    # Constant for the Gaussian density,  and density of the t-dist (logs)
+    gdens <- -0.5* (sum(log(diag(gkmat))) + nfrail*log(2* pi))
+    logdet <- -sum(log(diag(hmatb)))
+    tdens <- lgamma((nfrail + rdf)/2) - 
+            (lgamma(rdf/2) + 0.5*(logdet + nfrail* log(pi*rdf) + 
+             (nfrail+ rdf)* log(1 + 2*penalty2/rdf)))
+    
+    # Add it up, we have to be very careful about round-off
+    n1 <- rfit$loglik + gdens - (penalty1 + ilik + tdens)
+    n2 <- fit$loglik[2] + gdens - (penalty2 + ilik + tdens)
+    temp <- max(n1, n2)  #scale so the largest value is about 1
+    errhat <- (exp(n1-temp) - exp(n2-temp)) * exp(temp)
+    #errhat <- (exp(rfit$loglik -(penalty1 + ilik)) - 
+    #        exp(fit$loglik[2]- (penalty2 + ilik))) * exp(gdens-tdens)
+    mtemp <- mean(errhat)             #estimated integral
+    stemp <- sqrt(var(errhat)/refine.n)   #std of the estimate
+    r.correct <- c(correction= log(1+ mtemp), std=stemp/(1 +mtemp)) #log scale
+    #ilik <- ilik + r.correct[1]
+}
 @ 
 
 The final routine [[coxfit6c]] is used for cleanup, and is
@@ -2935,7 +2972,10 @@ Most coxph calls converge in 3-4 iterations.  The default value
 for [[control$inner.iter]] is [[Quote(fit0$iter +1)]] to avoid disaster in the
 case of a `hard' baseline model. We need to evaluate the expression  %'`
 after fit0 is known.
-If all values of $\theta$ are fixed, then fit0 only needs the value for
+If all values of $\theta$ are fixed, then the only thing we will
+use from fit0 is the loglik.
+Note that if there are no covariates or only an offset term, then 
+the returned log-likelihood is of length 1, not 2.
 a null model.
 <<null-fit>>=
 if (is.null(ifixed) ) ifixed <- rep(0., ncol(x))
@@ -2947,6 +2987,7 @@ fit0 <- coxfitfun(x,y, strata=strata,
                   offset=offset, init=ifixed, weights=weights,
                   method=ties, rownames=1:nrow(y),
                   control=coxph.control(iter.max=itemp))
+loglik0 <- fit0$loglik[length(fit0$loglik)]  # in case of no covariates  
 control$inner.iter <- eval(control$inner.iter)
 @ 
 
@@ -2960,31 +3001,38 @@ parameter in [[istart]]; try all combinations and keep the best one.
 
 ishrink <- 0.7  # arbitrary guess
 init.coef <- c(rep(0., npenal), scale*fit0$coef* ishrink)
+
 if (length(itheta)==0) iter <- c(0,0)
 else {
-    nstart <- sapply(itheta, length)
-    if (all(nstart==1)) theta <- unlist(itheta)  #one starting guess
-    else {
-        #make a matrix of all possible starting estimtes
-        testvals <- do.call(expand.grid, itheta)
-        bestlog <- NULL
-        for (i in 1:nrow(testvals)) {
-            ll <- logfun(as.numeric(testvals[i,]), 
-                         varlist, vparm, kfun, ntheta, ncoef, 
-                         init=init.coef, fit0$loglik[2], 
-                         control$inner.iter, ofile)
-            if (is.finite(ll)) {
-                #ll calc can fail if someone picks a very bad starting guess
-                if (is.null(bestlog) || ll < bestlog) {  
-                    # (optim is set up to minimize)
-                    bestlog <- ll
-                    theta <- as.numeric(testvals[i,])
-                }
+    <<coxme-gridsearch>>
+@ 
+
+This is set out as a block since it is also used in lmekin.
+(Later, copied but not used due to different logfun).
+<<coxme-gridsearch>>=
+nstart <- sapply(itheta, length)
+if (all(nstart==1)) theta <- unlist(itheta)  #one starting guess
+else {
+    #make a matrix of all possible starting estimtes
+    testvals <- do.call(expand.grid, itheta)
+    bestlog <- NULL
+    for (i in 1:nrow(testvals)) {
+        ll <- logfun(as.numeric(testvals[i,]), 
+                     varlist, vparm, kfun, ntheta, ncoef, 
+                     init=init.coef, loglik0, 
+                     control$inner.iter, ofile)
+        if (is.finite(ll)) {
+            #ll calc can fail if someone picks a very bad starting guess
+            if (is.null(bestlog) || ll < bestlog) {  
+                # (optim is set up to minimize)
+                bestlog <- ll
+                theta <- as.numeric(testvals[i,])
             }
         }
-        if (is.null(bestlog))
-            stop("No starting estimate was successful")
     }
+    if (is.null(bestlog))
+        stop("No starting estimate was successful")
+}
 @ 
 In the code below
 [[optpar]] is a list of control parameters for the [[optim]] function,
@@ -2998,7 +3046,7 @@ however, I prefer to make such hidden arguments explicit.
     # Finally do the fit
     logpar <- list(varlist=varlist, vparm=vparm, 
                    ntheta=ntheta, ncoef=ncoef, kfun=kfun,
-                   init=init.coef, fit0= fit0$loglik[2],
+                   init=init.coef, fit0= loglik0,
                    iter=control$inner.iter,
                    ofile=ofile)
     mfit <- do.call('optim', c(list(par= theta, fn=logfun, gr=NULL), 
@@ -3027,21 +3075,21 @@ fit <- .C(ofile,
 ilik <- fit$loglik[2] -
   .5*(sum(log(diag(gkmat))) + fit$hdet)
 iter[2] <- iter[2] + fit$iter[2]
-<<refine>>
 @
               
 \subsection{Finishing up}
 \label{sect:final}
-There are 5 tasks left to do
+There are 6 tasks left to do
 <<coxme-finish>>=
-<<release-memory>>
+<<coxme-lastvar>>
 <<coxme-rescale>>
 <<coxme-df>>
-<<refine2>>   
+<<refine>>  
+.C("coxfit6e", as.integer(ncol(y)))  #release memory
 <<create-output-list>>
 @ 
 
-The nexts ection finishes up with the C code.
+The nexts section finishes up with the C code.
 The first few lines reprise some variables
 found in the C code but not before needed here.
 It returns the score vector $u$, the 
@@ -3050,8 +3098,7 @@ Hessian matrix (h.b and h.r), the
 inverse Hessian matrix (hi.b, hi.r), and the rank of the final 
 solution.  These are needed to compute the variance matrix of the
 estimates.
-It then releases all the memory allocated by the initial routine.
-<<release-memory>>=
+<<coxme-lastvar>>=
 nfrail <- nrow(ikmat)  #total number of penalized terms
 nsparse <- sum(ikmat@blocksize)
 nvar2  <- nvar + (nfrail - nsparse)  # total number of non-sparse coefs
@@ -3190,9 +3237,10 @@ if (refine.n>0) {
     #The next line can be turned on for detailed tests in refine.R
     #  The feature is not documented in the manual pages, only
     #  here.
-    if (exists("coxme.refine.debugswitch") && coxme.refine.debugswitch)
-        out$refine.debug <-list(loglik=rfit$loglik, bmat=bmat,
-                                       errhat=errhat, gkmat=gkmat)
+    if (control$refine.detail)
+        out$refine.detail <-list(loglik=rfit$loglik, bmat=bmat2, tdens=tdens,
+                                penalty1=penalty1, penalty2=penalty2,
+                                gdens=gdens, errhat=errhat, gkmat=gkmat)
     }
 out
 }
@@ -3207,7 +3255,7 @@ If nlme is loaded first, I don't want to re-define these functions.
 If I do, then the ranef.lme method becomes invisible.  
 It appears to be a design decision: R doesn't know
 that my ranef function is identical to the ones in nlme, and
-so it 'forgets' the old methods in order to avoid inconsistency.
+so it `forgets' the old methods in order to avoid inconsistency.
 The obvious solution to this is to check for existence of the functions
 before defining them.
 However, this doesn't work with namespaces -- you either have the file
@@ -3223,7 +3271,7 @@ R now finds them by standard mechanisms outside the name space structure.
 After some discussion on the R developer list, it was decided that the
 only workable solution was to include the line
 \begin{quote}
-   importFrom(nlme, ranef, fixef)
+   importFrom(nlme, ranef, fixef, VarCorr)
 \end{quote}
 into both coxme and lme4, importing the generic from the original nlme
 package.  It is the only way for the R exectutive to know that all the
@@ -3232,9 +3280,766 @@ instances of a method are legal.
 <<ranef>>=
 # The objects that do the actual work (not much work)
 fixef.coxme <- function(object, ...)
+    object$coefficients
+
+fixef.lmekin <- function(object, ...)
     object$coefficients$fixed
 
 ranef.coxme <- function(object, ...)
+    object$frail
+
+ranef.lmekin <- function(object, ...)
     object$coefficients$random
+
+VarCorr.coxme <- function(x, ...) 
+    x$vcoef
+    
+VarCorr.lmekin <- function(x, ...) 
+    x$vcoef
+
+vcov.coxme <- function(object, ...) {
+    nf <- length(fixef(object))
+    indx <- seq(length=nf, to=nrow(object$var))
+    as.matrix(object$var[indx, indx])
+}
+
+vcov.lmekin <- vcov.coxme    
 @ 
+\section{lmekin}
+The original kinship library had an implementation of linear mixed effects
+models using the matrix code found in coxme.  
+The reason for the program was entirely to check our arithmetic: it should
+get the same answers as lme.
+With more time and a larger test suite the routine is no longer 
+necessary for this purpose, however, it became popular with 
+users since it can fit a few models that lme cannot.
+
+The orignal code was based on equation 2.14 of Pinheiro and Bates, the one
+they do not recommmend for computation, however it was restricted to
+a single random effect.  
+This version is more general.
+Note that a lot of the code below is a pure copy of the coxme code.
+
+<<lmekin>>=
+lmekin <- function(formula,  data, 
+        weights, subset, na.action,
+        control, varlist, vfixed, vinit, 
+        method=c("ML", "REML"),
+        sparse=c(1,0),
+        x=FALSE, y=TRUE, 
+        random, fixed, variance,  ...) {
+
+    Call <- match.call()
+
+    <<lme-process-standard-arguments>>
+    <<decompose-lme-formula>>
+    <<build-control-structures>>
+    <<lmekin-compute>>
+    <<lmekin-finish-up>>
+    }
+<<lmekin-helper>>
+@ 
+
+The standard argments processing is copy of that for coxme, but with
+the word ``lmekin'' in error messages.
+
+<<lme-process-standard-arguments>>=
+if (!missing(fixed)) {
+    if (missing(formula)) {
+        formula <- fixed
+        warning("The 'fixed' argument of lmekin is depreciated")
+        }
+    else stop("Both a fixed and a formula argument are present")
+    }
+if (!missing(random)) {
+    warning("The random argument of lmekin is depreciated")
+    if (class(random) != 'formula' || length(random) !=2) 
+        stop("Invalid random formula")
+    j <- length(formula)   #will be 2 or 3, depending on if there is a y
+
+    # Add parens to the random formula and paste it on
+    formula[[j]] <- call('+', formula[[j]], call('(', random[[2]]))  
+    }
+
+if (!missing(variance)) {
+    warning("The variance argument of lmekin is depreciated")
+    vfixed <- variance
+    }
+
+method <- match.arg(method)
+
+temp <- call('model.frame', formula= subbar(formula))
+for (i in c('data', 'subset', 'weights', 'na.action'))
+    if (!is.null(Call[[i]])) temp[[i]] <- Call[[i]]
+m <- eval.parent(temp)
+
+Y <- model.extract(m, "response")
+n <- length(Y)
+if (n==0) stop("data has no observations")
+
+weights <- model.weights(m)
+if (length(weights) ==0) weights <- rep(1.0, n)
+else if (any(weights <=0))
+    stop("Negative or zero weights are not allowed")
+
+offset <- model.offset(m)
+if (length(offset)==0) offset <- rep(0., n)
+
+# Check for penalized terms; the most likely is pspline
+pterms <- sapply(m, inherits, 'coxph.penalty')
+if (any(pterms)) {
+    stop("You cannot have penalized terms in lmekin")
+    }
+
+if (missing(control)) control <- lmekin.control(...)
+@ 
+
+Get the X-matrix part of the formula.
+This is parallel to the version in coxme, the main difference is
+that we keep the intercept term.
+We check for the cluster and strata terms because it is a mistake
+that I anticipate users to make.
+<<decompose-lme-formula>>=
+flist <- formula1(formula)
+if (hasAbar(flist$fixed))
+    stop("Invalid formula: a '|' outside of a valid random effects term")
+
+special <- c("strata", "cluster")
+Terms <- terms(flist$fixed, special)
+if (length(attr(Terms, "specials")$strata))
+    stop ("A strata term is invalid in lmekin")
+if (length(attr(Terms, "specials")$cluster))
+    stop ("A cluster term is invalid in lmekin")
+X <- model.matrix(Terms, m)
+@
+    
+Now for the actual compuation.
+We want to solve
+\begin{align*}
+  y & = X\beta + Zb + \epsilon \\
+  b & \sim N(0, K)
+\end{align*}
+where $K$ is the variance matrix returned by [[kfun]].
+If we know $K$, one way to solve this is as an augmented
+least squares problem with
+\begin{equation*}
+  y^*=\left(\begin{array}{c} y\\0 \end{array} \right) \qquad
+  X^*=\left(\begin{array}{c} X\\0 \end{array} \right) \qquad
+  Z^*=\left(\begin{array}{c} Z\\ \Delta  \end{array} \right)
+\end{equation*}
+where $\Delta' \Delta= (K/\sigma^2)^{-1}$.                       %'
+The dummy rows of data have $y=0$, $X=0$ and $\Delta$ as
+the predictor variables.
+With known $\Delta$, this gives the solution to all the other
+parameters as an ordinary least squares problem.
+
+
+In our case $K/\sigma^2$ will be the iteration target of the
+[[optim]] function, and we need to 
+evaluate the other parameters in order to determine the log-likelihood.
+In coxme this is done inside a C routine, here we can use the
+more direct method.
+In the original [[lmekin]] function we made the assumption that
+$Z$ was an identity matrix, which allowed for a simple solution
+using only the generalized cholesky decompostion found in the
+[[bdsmatrix]] library.
+Here we use the more general QR method as outlined in Pinheiro and
+Bates.  
+Assume that $Z$ has $q$ columns and $X$ has $p$ columns, the number
+of random and fixed coefficients, respectively.
+Then
+\begin{align*}
+  \left(Z^*, X^* \right) &= QR \\
+  R &= \left( \begin{array}{cc} R_{11}& R_{12} \\ 0& R_{22} \\
+                                0 & 0
+    \end{array} \right) \\
+  Q'y &= \left( \begin{array}{c} c_1 \\ c_2 \\ c_3 \end{array} \right)
+\end{align*}                                                         %'
+
+The orthagonal matrix $Q$ is $n\times n$, $R_{11}$ is $q \times q$ and upper 
+triangular, $R_{22}$ is $p \times p$ upper triangular, and $R$ is $n \times p$.
+The vectors $c_1$, $c_2$, and $c_3$ are of lengths $q$, $p$, and
+$n- (p+q)$, respectively.
+Using slightly different notation, Pinheiro and Bates show
+that the solution vector and the profiled log-likelihood are (equations 2.19
+and 2.21)
+\begin{align}
+  \hat\beta(\theta) &= R_{22}^{-1} c_2  \label{bhat}\\
+  \hat\sigma^2(\theta) &= ||c_3||^2/n  \label{sighat}\\
+  \log(L(\theta)) &= \frac{n}{2}\left[\log n - \log(2\pi) -1\right] -
+    n\log |c_2| + \log\left({\rm abs}\frac{|\Delta|}{|R_{11} \right) 
+     \label{loghat}
+\end{align}
+Here $|c|$ is the norm of a vector $c$  and $|A|$ the determinant of a matrix
+$A$.  The determinant of a triangular matrix is the product of its
+diagonal elements.  The solution for $\hat\beta$ is returned by the
+[[qr.coef]] routine.
+
+The restricted maximum likelihood estimate (REML) follows from the same
+decompostions, but with
+\begin{align}
+  \hat\sigma^2_{REML}(\theta) &= ||c_3||^2/(n-p)  \label{sighatREML}\\
+  \log(L(\theta))_{REML} &= \frac{n}{2}\left[\log n - \log(2\pi) -1\right] -
+    (n-p)\log |c_2| + \log\left({\rm abs}\frac{|\Delta|}{|R|} \right) 
+     \label{loghatREML}
+\end{align}
+
+
+<<lmekin-compute>>=
+<<define-penalty>>
+<<define-xz>>
+<<lmekin-fit>>
+@ 
+
+The define-penalty code is shared with coxme, it defines the
+function [[kfun]] which returns $\Delta$ given the parameters $\theta$.
+The next bit of code defines $X^*$ and the top portion of $Z^*$
+as sparse Matrix objects.
+The definition $X^*$ is easy as we already have it in hand.  
+For $Z^*$ most of the work is creating the design matrix for the
+intercepts from our very compressed form [[fmat]].
+That matrix has one column for each unique factor and $n$ rows,
+each column contains the coefficent mapping of subjects to coefficients.
+So for instance assume 6 subject and a term of [[(1|group)]] with 3
+groups.
+The corresponding column of fmat might be (1,2,2,3,1,3) showing that
+subject 1 is in group 1, subject 1 in group 2, etc.  
+In a genetic data set with kinship each subject would be in thier
+own group and the column would be some permutation of 1:n.
+The corresponding design matrix is
+
+\begin{equation*}
+  \left( \begin{array}{cccccc}
+    1&0&0 \\ 0&1&0 \\ 0&1&0 \\
+    0&0&1 \\ 1&0&0 \\0&0&1 \end{array} \right)
+\end{equation*}
+
+The sparse coding of this for a dgCMatrix object has 
+components
+\begin{description}
+  \item[i] a vector containing all the row numbers of the non zero
+    elements, with rows numbered from zero.
+    In this case it would be 0, 4, 1, 2, 3, 5.
+  \item[p] a vector with first element 0 such that diff(p) = the
+    number of non-zeros in each column
+  \item[x] the values of the non-sparse elements
+  \item[Dim] dimensions of the matrix
+  \item[Dimnames] optional dimnames
+  \item[factors] an empty list, used by later Matrix routines for
+    factorization information
+\end{description}
+
+The variable [[zstar1]] is the top part of $Z^*$, i.e., the full $Z$
+matrix, in sparse form.  
+At each iteration $\Delta$ changes, we splice that on at that time.
+If we use a decompostion of $(Z^*, X^*)$ as defined above there
+is a problem: the sparse QR routine will rearrange the columns of
+the decomposed matrix so as to be most efficient (some permutataions
+retain more sparseness than others). 
+This is ok as long as the rearrangement does not intermix $Z$ and
+$X$, and in fact it often does not since $Z$ will be ``sparser'' than $X$ 
+in most problems; but we can't guarrantee it.                  %'
+Thus we do a two-step decompostion:
+\begin{align*}
+  (Z,X) &= (Q_1 | Q_2) \left(\begin{array}{cc} R_1 & A\\ 0 & R2 
+                       \end{array} \right) \\
+    Q_1'X &= \left ( \begin{array}{c} A\\ Q_2R_2 \end{array} \right)
+\end{align*}
+Thus $Q_1$ and $R_1$ are the result of a QR decomposition of $Z$,
+and $Q_2$, $R_2$ from a QR decompostion of the
+the lower rows of $Q_1'X$.
+The final result is the same as a single QR call for the combined
+matrix.
+
+At the time of this writing the Matrix library's [[qr.qty]] routine  %'
+could not deal with a sparse matrix as the second argument,
+thus in creating [[xstar]] below we force a non-sparse version.
+This is not a computational problem since X is always of modest size,
+it is the random effects matrix Z which can be huge and for which
+sparseness can pay off handsomely.
+The Matrix routine by
+default uses a sparse form if the object has over 1/2 zeros,
+which would be true for some $X$ matrices.
+<<define-xz>>=
+#Define Z^* and X^*
+itemp <- split(row(fmat), fmat)
+zstar1 <- new("dgCMatrix", 
+              i= as.integer(unlist(itemp) -1),
+              p= as.integer(c(0, cumsum(unlist(lapply(itemp, length))))),
+              Dim=as.integer(c(n, max(fmat))),
+              Dimnames= list(NULL, NULL),
+              x= rep(1.0, length(fmat)),
+              factors=list())
+if (length(zmat) >0)  {
+    # there were random slopes as well
+    zstar1 <- cBind(zstar1, as(Matrix(zmat), "dgCMatrix"))
+}
+
+nfrail <- ncol(zstar1)
+nvar <- ncol(X)
+if (nvar == 0)  xstar <- NULL  #model with no covariates
+else xstar <- rBind(Matrix(X, sparse=FALSE),
+                    matrix(0., nrow=nfrail, ncol=ncol(X)))
+ystar <- c(Y, rep(0.0, nfrail))
+@ 
+
+Now to do the fit. 
+Define logfun, which returns the loglik (without the constant terms) for
+a given trial value of theta.
+Use a gridsearch to find the best starting values, and start the
+optim() routine there.
+The convergence criterion for optim works well if the true minimum is
+around 1 in absolute value; our last line of logfun makes that true 
+if the starting estimate is exactly the final solution.
+Notice that the max for $\theta$ only depends on the loglik,
+equation \ref{loghat} or \ref{loghatREML}.
+
+For the ML estimate \ref{loghat} we need the determinant of $R_{11}$
+The documentation for the qr routine in the Matrix library has an
+unclear reference to column permutations (it says they can exist, but
+not how to turn this on or off nor the default).  Since we need to
+keep $Z$ before $X$ the code below has 2 calls, first on the $Z$
+portion and then on the transformed $X$ portion.
+
+A second nuisance is that the qr.R function in the Matrix
+library insists on printing a warning message about the fact
+that permutations may exist.  For computation of a determinant,
+which is the product of the diagonal elements of R,
+any reordering is irrelevant to us.  So we create a local function
+to get past this.
+
+<<lmekin-fit>>=
+mydiag <- function(x) {
+    if (class(x)=="sparseQR") diag(x@R)
+    else diag(qr.R(x))
+}
+
+logfun <- function(theta, best=0) {
+    vmat <- kfun(theta, varlist, vparm, ntheta, ncoef)
+    Delta <- solve(chol(as(vmat, "dsCMatrix")))
+    zstar <- rBind(zstar1, Delta)
+    qr1 <- qr(zstar)
+    dd <- mydiag(qr1) 
+    cvec <- as.vector(qr.qty(qr1, ystar))[-(1:nfrail)]  #residual part
+
+    if (nvar >0) {  # have covariates
+        qr2 <- qr(qr.qty(qr1, xstar)[-(1:nfrail),])
+        cvec <- qr.qty(qr2, cvec)[-(1:nvar)]  #residual part
+        if (method!= "ML") dd <- c(dd, mydiag(qr2))
+    }
+
+    loglik <- sum(log(abs(diag(Delta)))) - sum(log(abs(dd)))
+    if (method=="ML") loglik <- loglik - .5*n*log(sum(cvec^2))
+    else              loglik <- loglik - .5*length(cvec)*log(sum(cvec^2))
+    
+    best - (loglik+1)  #optim() wants to minimize rather than maximize
+}
+
+nstart <- sapply(itheta, length)
+if (length(nstart) ==0) theta <- NULL #no thetas to solve for
+else {
+    #iteration is required
+    #make a matrix of all possible starting estimtes
+    testvals <- do.call(expand.grid, itheta)
+    bestlog <- NULL
+    for (i in 1:nrow(testvals)) {
+        ll <- logfun(as.numeric(testvals[i,]))
+        if (is.finite(ll)) {
+            #ll calc can fail if someone picks a very bad starting guess
+            if (is.null(bestlog) || ll < bestlog) {  
+                # (optim is set up to minimize)
+                bestlog <- ll
+                theta <- as.numeric(testvals[i,])
+            }
+        }
+    }
+    if (is.null(bestlog))
+        stop("No starting estimate was successful")
+
+    optpar <- control$optpar
+    optpar$hessian <- TRUE
+    mfit <- do.call('optim', c(list(par= theta, fn=logfun, gr=NULL,
+                                    best=bestlog), optpar))
+    theta <- mfit$par
+}
+@ 
+
+At this point the optimal $\theta$ has been found.
+Now do one more pass with the ``internals'' of the logfun
+function, and compute other quantities that we didn't need    
+for the intermediate iterations.
+Remember that for the genetic problems lmekin was
+designed for $Z$ will be very large and sparse while $X$ will
+be modest. 
+We don't want to use the backsolve function on $Z$, since at the
+moment there is no sparse method.  Matrix multiplication,
+chol2inv, and qr.* methods have sparse analogs.
+<<lmekin-compute>>=
+vmat <-  kfun(theta, varlist, vparm, ntheta, ncoef)
+Delta <- solve(chol(as(vmat, "dsCMatrix")))
+zstar <- rBind(zstar1, Delta)
+qr1 <- qr(zstar)
+dd <- mydiag(qr1)
+ctemp <- as.vector(qr.qty(qr1, ystar))
+cvec <- ctemp[-(1:nfrail)]  #residual part
+
+if (is.null(xstar)) { #No X covariates
+    rcoef <- qr.coef(qr1, ystar)
+    yhat <- qr.fitted(qr1, ystar)
+}
+else {
+    qtx <- qr.qty(qr1, xstar)
+    qr2 <- qr(qtx[-(1:nfrail),,drop=F])
+    if (method!="ML") dd <- c(dd, mydiag(qr2))
+
+    fcoef <-qr.coef(qr2, cvec)
+    yresid <- ystar - xstar %*% fcoef
+    rcoef <- qr.coef(qr1, yresid)
+    cvec <- qr.qty(qr2, cvec)[-(1:nvar)] #residual part
+    if (class(qr2)=="sparseQR") varmat <- chol2inv(qr2@R)
+    else varmat <- chol2inv(qr.R(qr2))
+    yhat <- as.vector(zstar1 %*% rcoef + X %*% fcoef) #kill any names
+}
+
+if (method=="ML") {
+    sigma2 <- sum(cvec^2)/n  #MLE estimate  
+    loglik <- sum(log(abs(diag(Delta)))) - 
+          (sum(log(abs(dd))) + .5*n*(log(2*pi) +1 + log(sigma2)))
+}
+else {
+    np <- length(cvec)  # n-p
+    sigma2 <- mean(cvec^2)  # divide by n-p
+    loglik <- sum(log(abs(diag(Delta)))) -
+        (sum(log(abs(dd))) + .5*np*(log(2*pi) + 1+ log(sigma2)))
+}
+	
+# Debugging code, set the argument to TRUE only during testing
+if (FALSE) {
+    # Compute the alternate way (assumes limited reordering)
+    zx <- cBind(zstar, as(xstar, class(zstar)))
+    qr3 <- qr(zx)
+    cvec3 <- qr.qty(qr3, ystar)[-(1:(nvar+nfrail))]
+    if (method=="ML")  dd3 <- (diag(myqrr(qr3)))[1:nfrail]
+    else               dd3 <- (diag(myqrr(qr3)))[1:(nfrail+nvar)]
+    #all.equal(dd, dd3)
+    #all.equal(cvec, cvec3)
+    acoef <- qr.coef(qr3, ystar)
+    browser()
+}
+@ 
+
+Bundle the results together into an output object.
+This object differs from the old lme object, having both more and less
+information.  
+First we call the wrapup functions to retransform any parameters.
+<<lmekin-finish-up>>=
+
+newtheta <- random.coef <- list()  
+nrandom <- length(varlist)
+sindex <- rep(1:nrandom, ntheta) #which thetas to which terms
+bindex <- rep(1:nrandom, rowSums(ncoef)) # which b's to which terms
+for (i in 1:nrandom) {
+    temp <- varlist[[i]]$wrapup(theta[sindex==i], rcoef[bindex==i], 
+                                vparm[[i]])
+    newtheta <- c(newtheta, temp$theta)
+    if (!is.list(temp$b)) {
+        temp$b <- list(temp$b)
+        names(temp$b) <- paste("Random", i, sep='')
+        }
+    random.coef <- c(random.coef, temp$b)
+    }
+@ 
+
+We create a variance matrix only for the fixed effects.
+The primary reason is that even though $Z$ is sparse the variance
+matrix associated with $Z$ will usually be dense; for many
+of our genetics problems this would easily drive R out of
+memory.
+If the columns of $(Z,X)$ remain in order we only need to invert
+the lower triangle of $R$, but if they have been permuted we
+need to force separation between $Z$ and $X$ by doing the 
+decompostion in two steps.
+<<lmekin-finish-up>>=
+
+if (length(fcoef) >0) {
+    # There are fixed effects
+    nvar <- length(fcoef)
+    fit <- list (coefficients=list(fixed=fcoef, random=random.coef),
+                 var = varmat * sigma2,
+                 vcoef =newtheta,
+                 residuals= Y- yhat,
+                 method=method,
+                 loglik=loglik,
+                 sigma=sqrt(sigma2),
+                 n=n,
+                 call=Call)
+}
+else fit <- list(coefficients=list(fixed=NULL, random=random.coef),
+                 vcoef=newtheta,
+                 residuals=Y - yhat,
+                 method=method,
+                 loglik=loglik,
+                 sigma=sqrt(sigma2),
+                 n=n,
+                 call=Call)
+
+if (!is.null(theta)) fit$rvar <- mfit$hessian
+
+na.action <- attr(m, "na.action")
+if (length(na.action)) fit$na.action <- na.action
+                         
+class(fit) <- "lmekin"
+fit
+@ 
+
+And last, a couple of helper functions
+<<lmekin-helper>>=
+residuals.lmekin <- function(object, ...) {
+    if (length(object$na.action)) naresid(object$.na.action, object$residuals)
+    else object$residuals
+}
+<<bdsmatrix>>
+@ 
+\section{Matrix conversions}
+ The package currently uses objects from both the \emph{Matrix} and
+the \emph{bdsmatrix} libraries.
+The former are the basic unit for the [[lmekin]] function, and are
+returned as kinship matrices by the \emph{kinship2} library.
+Bsdmatrix objects are the main tool for the internal routines of 
+[[coxme]], although there is a long term goal of changing that in
+order to gain more flexibility.
+
+In the meantime, we need programs to convert from one to the other.
+The major nuisance is that the sparse portion of a bdsmatrix object
+is stored in row-major order, equivalent to an upper triangular
+dsRMatrix object in the Matrix library. 
+However, the routines we need to use for QR
+decompostions are supported for column-major sparse objects.  Our
+first routine, therefore, is one for rearrangement of a sparse
+block.
+Consider a 4 by 4 sparse in bdsmatrix order
+$$
+\left( \begin{array}{cccc}
+  1\\ 2&5 \\ 3&6&8 \\ 4&7&9&10
+  \end{array} \right)
+$$
+A dsCMatrix object expects the order 1, 2,5, 3,6,8, 4,7,9,10; read across
+the rows rather than down.
+In the other direction we want the inverse of this, namely
+1, 2, 4, 7, 3, 5, 8, 6, 9, 10; which are the positions of 1, 2, 3, \ldots
+in the first list.
+(Conversely, our first list is the positions of 1, 2, 3, \ldots in 
+this list.)
+
+<<bdsmatrix>>=
+rowTocol <- function(bs) {  #bs = size of block
+    n <- (bs*(bs+1))/2
+    indx <- integer(n)
+    offset <- c(0L, cumsum(seq.int(bs-1, 1)))
+    k <- 1L
+    for (i in seq.int(1,bs)) {
+        for (j in 1:i ) {
+            indx[k] <- i + offset[j]
+            k <- k+1
+            }
+        }
+    indx                              
+}
+
+colTorow <- function(bs) {  #bs = size of block
+    n <- (bs*(bs+1))/2
+    indx <- integer(n)
+    offset <- c(0L, cumsum(seq.int(1, bs-1)))
+    k <- 1L
+    for (i in seq.int(1,bs)) {
+        for (j in seq.int(i, bs) ) {
+            indx[k] <- i + offset[j]
+            k <- k+1
+            }
+        }
+    indx                              
+}
+@ 
+
+To correctly convert the whole list of blocks we
+add an offset to each, which is the cumulative total
+for the blocks preceding it.
+
+
+Now for the actual conversion, which is mostly a
+bookkeeping/counting operation. 
+The majority of the work is creating
+the indices for the second object.  In the rare case
+that the bdsmatrix object has no sparse portion we 
+can convert the rmat portion directly using the [[symmpart]]
+function.
+<<bdsmatrix>>=
+setAs("bdsmatrix", "dsCMatrix", function(from) {
+    rownum <- function(z) unlist(lapply(1:z, function(r) 1:r))
+    nb <- from@blocksize* (from@blocksize+1)/2  #elements per block
+    if (length(from@blocks)==0) symmpart(Matrix(from@rmat))
+    else {
+        temp <- vector('list', length(nb))
+        bstart <- c(0, cumsum(from@blocksize)) #offset of each block
+        for (i in 1:length(nb)) 
+            temp[[i]] <- rownum(from@blocksize[i]) + bstart[i]
+        m.i <- unlist(temp)
+        m.p <- unlist(lapply(from@blocksize, function(x) seq(1,x)))
+
+        xindx <- unlist(sapply(from@blocksize, rowTocol)) +
+                 rep.int(c(0, cumsum(nb))[1:length(nb)], nb)      
+        m.x <- from@blocks[xindx]
+        if (length(from@rmat >0)) {
+            nc <- ncol(from@rmat)  #number of columns in rmat
+            nr <- nrow(from)     #total number of rows
+            ii <- seq(to=nr, length=nc)
+            m.i <- c(m.i, unlist(lapply(ii, function(r) 1:r)))
+            m.p <- c(m.p, ii)
+            m.x <- c(m.x, from@rmat[row(from@rmat) <= nr + col(from@rmat) -nc])
+            }          
+        new("dsCMatrix", 
+                 i = as.integer(m.i-1),
+                 p = as.integer(c(0, cumsum(m.p))),
+                 Dim= dim(from),
+                 Dimnames=dimnames(from),
+                 x= m.x,
+                 uplo='U',
+                 factors=list())
+    }
+})             
+@ 
+
+Conversion of the result of a cholesky decompostion leads to the
+same matrix form.  However, the dtCMatrix object is an L'L
+decompostion, not an LDL' one, so we have to multiply things
+out.
+the same.
+<<bdsmatrix>>=
+setAs("gchol.bdsmatrix", "dtCMatrix", function(from) {
+    dd <- sqrt(diag(from))  #the multiplication factor
+    rownum <- function(z) unlist(lapply(1:z, function(r) 1:r))
+    nb <- from@blocksize* (from@blocksize+1)/2  #elements per block
+    if (length(from@blocks)>0){
+        temp <- vector('list', length(nb))
+        bstart <- c(0, cumsum(from@blocksize)) #offset of each block
+        for (i in 1:length(nb)) 
+            temp[[i]] <- rownum(from@blocksize[i]) + bstart[i]
+        m.i <- unlist(temp)
+        m.p <- unlist(lapply(from@blocksize, function(x) seq(1,x)))
+
+        xindx <- unlist(sapply(from@blocksize, rowTocol)) +
+                 rep.int(c(0, cumsum(nb))[1:length(nb)], nb)      
+        m.x <- from@blocks[xindx]
+
+        if (length(from@rmat >0)) {
+            nc <- ncol(from@rmat)  #number of columns in rmat
+            nr <- nrow(from)     #total number of rows
+            ii <- seq(to=nr, length=nc)
+            m.i <- c(m.i, unlist(lapply(ii, function(r) 1:r)))
+            m.p <- c(m.p, ii)
+            m.x <- c(m.x, from@rmat[row(from@rmat) <= nr + col(from@rmat) -nc])
+        }
+    }
+    else {
+        nc <- ncol(from@rmat)  #number of columns in rmat
+        nr <- nrow(from)     #total number of rows
+        ii <- seq(to=nr, length=nc)
+        m.i <- unlist(lapply(ii, function(r) 1:r))
+        m.p <- ii
+        m.x <- from@rmat[row(from@rmat) <= nr + col(from@rmat) -nc]
+    } 
+        
+    #Modify x
+    m.x <- m.x * dd[m.i]  # fixes the off diagonals
+    m.x[rep(1:length(m.p), m.p) ==m.i] <- dd  #diagonals
+    new("dtCMatrix", 
+        i = as.integer(m.i-1),
+        p = as.integer(c(0, cumsum(m.p))),
+        Dim= dim(from),
+        Dimnames=from@Dimnames,
+        x= m.x,
+        uplo='U',
+        diag='N')
+})             
+@ 
+
+If someone is using the original kinship library then kinship
+matrices will be a bdsmatrix object, if they are using
+kinship2 they will be Matrix objects.
+For now, we want to turn Matrix objects into bdsmatrix ones.
+Doing so in the most general way is not trivial since that would
+involve recognizing a best rmat portion.  We simply find connected
+blocks, which will work for kinship matrices.  
+
+Our first job is to recognize a block. 
+A dsCMatrix stores the upper triangle of the matrix, so for
+any column it is easy to see the minimal row index with a 
+non-zero value.
+Imagine starting at the lower left corner, then move to the
+left keeping track of the lowest row number seen so far.
+Suppose at column $k$ the min so far is also $k$.  Then we
+know that the lower $k$ by $k$ block must have only zeros
+above it, and by symmetry only zeros to the left.  Set it
+aside and start over.  We see that
+any column for which the minimal index for all columns to the
+right = the current column number will be
+the start of a block.
+Assuming that the row indices are in increasing
+order (I have not yet seen an exception),
+then [[x@i[x@p[1:ncol]] ]] will be the index of these minimal elements,
+using the 0 based indexing of Matrix objects.
+
+Given a block, note that we can't use the simple colTorow function     %'
+above to rearrange its contents; the Matrix object will have ``holes'' in it.
+For example, in a simple family of 2 founders and their 3 children
+the bdsmatrix object will be a 5 by 5 block with a zero for the
+pair of founders; the Matrix object from kinship2 will supress the
+zero.  
+The natrual thing is to use x[i,i] where i is the integer vector
+delimiting the block.  
+However, at this time Matrix (version 1.0-1) has a major memory
+leak when subscripting a sparse matrix.
+The work around is the [[getblock]] function below.
+It can very quickly extract the relevant portion of the
+dsCMatrix object, under the assumption that the matrix is block
+diagonal and we are extracting an entire block.
+Because of marry-ins to a pedigree the case where start=end is
+quite common so we treat it as a special case.
+<<bdsmatrix>>=
+# Code to find the subset myself
+#  This ONLY works for the special case below
+getblock <- function(x, start, end) {
+    nrow <-  as.integer(1+end-start)
+    xp <- x@p[start:(end+1)]
+    if (nrow==1) return(x@x[xp[1]+1])  #singleton element
+
+    keep <- (1+min(xp)):max(xp)   
+    new("dsCMatrix", i=x@i[keep]+ 1L - as.integer(start), 
+        p= xp- min(xp), 
+        Dim=c(nrow, nrow), Dimnames=list(NULL, NULL),
+        x = x@x[keep], uplo=x@uplo, factors=list())
+}
+
+setAs("dsCMatrix", "bdsmatrix", function(from) {
+    dd <- dim(from)
+    if (dd[1] != dd[2]) stop("Variance matrices must be square")
+
+    nc <- ncol(from)
+    minrow <- from@i[from@p[1:nc] +1] +1
+    minrow <- rev(cummin(rev(minrow)))
+    block.start <- which(1:nc == minrow)
+    block.end <- c(block.start[-1] -1, ncol(from))
+    nblock <- length(block.start)
+                     
+    blocks <- vector('list', nblock)  
+    for (i in 1:nblock) {
+#        indx <- block.start[i]:block.end[i]
+#        blocks[[i]] <- as.matrix(from[indx, indx])
+        blocks[[i]] <- as.matrix(getblock(from, block.start[i], block.end[i]))
+    }
+    bdsmatrix(blocksize=sapply(blocks, nrow), blocks=unlist(blocks), 
+              dimnames=dimnames(from))
+    })
+@ 
+
 \end{document}

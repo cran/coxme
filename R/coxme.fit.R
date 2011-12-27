@@ -1,48 +1,48 @@
 # Automatically generated from all.nw using noweb
-coxme.fit <- function(x, y, strata, offset, ifixed, control,
-                        weights, ties, rownames, 
-                        imap, zmat, varlist, vparm, itheta,
-                        ntheta, ncoef, refine.n) {
-    time0 <- proc.time()
-    n <-  nrow(y)
-    if (length(x) ==0) nvar <-0
-    else nvar <- ncol(as.matrix(x))
-    
-    if (missing(offset) || is.null(offset)) offset <- rep(0.0, n)
-    if (missing(weights)|| is.null(weights))weights<- rep(1.0, n)
-    else {
-        if (any(weights<=0)) stop("Invalid weights, must be >0")
-        }
-    if (ncol(y) ==3) {
-        if (length(strata) ==0) {
-            sorted <- cbind(order(-y[,2], y[,3]), 
-                            order(-y[,1]))
-            newstrat <- n
+    coxme.fit <- function(x, y, strata, offset, ifixed, control,
+                            weights, ties, rownames, 
+                            imap, zmat, varlist, vparm, itheta,
+                            ntheta, ncoef, refine.n) {
+        time0 <- proc.time()
+        n <-  nrow(y)
+        if (length(x) ==0) nvar <-0
+        else nvar <- ncol(as.matrix(x))
+        
+        if (missing(offset) || is.null(offset)) offset <- rep(0.0, n)
+        if (missing(weights)|| is.null(weights))weights<- rep(1.0, n)
+        else {
+            if (any(weights<=0)) stop("Invalid weights, must be >0")
+            }
+        if (ncol(y) ==3) {
+            if (length(strata) ==0) {
+                sorted <- cbind(order(-y[,2], y[,3]), 
+                                order(-y[,1]))
+                newstrat <- n
+                }
+            else {
+                sorted <- cbind(order(strata, -y[,2], y[,3]),
+                                order(strata, -y[,1]))
+                newstrat  <- cumsum(table(strata))
+                }
+            status <- y[,3]
+            ofile <-  'agfit6b'
+            rfile <-  'agfit6d'
+            coxfitfun<- survival:::agreg.fit
             }
         else {
-            sorted <- cbind(order(strata, -y[,2], y[,3]),
-                            order(strata, -y[,1]))
-            newstrat  <- cumsum(table(strata))
+            if (length(strata) ==0) {
+                sorted <- order(-y[,1], y[,2])
+                newstrat <- n
+                }
+            else {
+                sorted <- order(strata, -y[,1], y[,2])
+                newstrat <-  cumsum(table(strata))
+                }
+            status <- y[,2]
+            ofile <- 'coxfit6b' # fitting routine
+            rfile <- 'coxfit6d' # refine.n routine
+            coxfitfun <- survival:::coxph.fit
             }
-        status <- y[,3]
-        ofile <-  'agfit6b'
-        rfile <-  'agfit6d'
-        coxfitfun<- survival:::agreg.fit
-        }
-    else {
-        if (length(strata) ==0) {
-            sorted <- order(-y[,1], y[,2])
-            newstrat <- n
-            }
-        else {
-            sorted <- order(strata, -y[,1], y[,2])
-            newstrat <-  cumsum(table(strata))
-            }
-        status <- y[,2]
-        ofile <- 'coxfit6b' # fitting routine
-        rfile <- 'coxfit6d' # refine.n routine
-        coxfitfun <- survival:::coxph.fit
-        }
     if (is.null(ifixed) ) ifixed <- rep(0., ncol(x))
     else if (length(ifixed) != ncol(x))
         stop("Wrong length for initial parameters of the fixed effects")
@@ -52,6 +52,7 @@ coxme.fit <- function(x, y, strata, offset, ifixed, control,
                       offset=offset, init=ifixed, weights=weights,
                       method=ties, rownames=1:nrow(y),
                       control=coxph.control(iter.max=itemp))
+    loglik0 <- fit0$loglik[length(fit0$loglik)]  # in case of no covariates  
     control$inner.iter <- eval(control$inner.iter)
     kfun <- function(theta, varlist, vparm, ntheta, ncoef) {
         nrandom <- length(varlist)
@@ -190,6 +191,7 @@ coxme.fit <- function(x, y, strata, offset, ifixed, control,
 
     ishrink <- 0.7  # arbitrary guess
     init.coef <- c(rep(0., npenal), scale*fit0$coef* ishrink)
+
     if (length(itheta)==0) iter <- c(0,0)
     else {
         nstart <- sapply(itheta, length)
@@ -201,7 +203,7 @@ coxme.fit <- function(x, y, strata, offset, ifixed, control,
             for (i in 1:nrow(testvals)) {
                 ll <- logfun(as.numeric(testvals[i,]), 
                              varlist, vparm, kfun, ntheta, ncoef, 
-                             init=init.coef, fit0$loglik[2], 
+                             init=init.coef, loglik0, 
                              control$inner.iter, ofile)
                 if (is.finite(ll)) {
                     #ll calc can fail if someone picks a very bad starting guess
@@ -218,7 +220,7 @@ coxme.fit <- function(x, y, strata, offset, ifixed, control,
         # Finally do the fit
         logpar <- list(varlist=varlist, vparm=vparm, 
                        ntheta=ntheta, ncoef=ncoef, kfun=kfun,
-                       init=init.coef, fit0= fit0$loglik[2],
+                       init=init.coef, fit0= loglik0,
                        iter=control$inner.iter,
                        ofile=ofile)
         mfit <- do.call('optim', c(list(par= theta, fn=logfun, gr=NULL), 
@@ -238,16 +240,6 @@ coxme.fit <- function(x, y, strata, offset, ifixed, control,
     ilik <- fit$loglik[2] -
       .5*(sum(log(diag(gkmat))) + fit$hdet)
     iter[2] <- iter[2] + fit$iter[2]
-    if (refine.n > 0) {
-        nfrail <- ncol(gkmat)
-        bmat <- matrix(rnorm(nfrail*refine.n), ncol=refine.n)
-
-        rfit <- .C(rfile,
-                   as.integer(refine.n),
-                   as.double(fit$beta),
-                   as.double(gkmat %*% bmat),
-                   loglik = double(refine.n))
-        }
     nfrail <- nrow(ikmat)  #total number of penalized terms
     nsparse <- sum(ikmat@blocksize)
     nvar2  <- nvar + (nfrail - nsparse)  # total number of non-sparse coefs
@@ -322,16 +314,45 @@ coxme.fit <- function(x, y, strata, offset, ifixed, control,
 
     df <- nvar + (nfrail - traceprod(hinv, ikmat))
     if (refine.n > 0) {
+        rdf <- control$refine.df
         nfrail <- ncol(gkmat)
-        rterm2 <- colSums(bmat^2)/2
-        delta  <- fit$beta[1:nfrail] - gkmat %*% bmat
-        rterm3 <- rowSums((t(delta) %*% hmat[1:nfrail, 1:nfrail])^2)/2
-        temp <- cbind(rfit$loglik, fit$loglik[2] +rterm2 - rterm3)
-        errhat <- exp(temp[,1]- ilik) - exp(temp[,2]- ilik)
-        ilik  <- ilik + log(1+ mean(errhat))
-        r.correct <- c(correction= mean(errhat), 
-                               std =sqrt(var(errhat)/refine.n))
-        }
+        hmatb <- hmat[1:nfrail, 1:nfrail]
+        #create the random t-variate with variance H-inverse
+        bmat <- matrix(rnorm(nfrail*refine.n), ncol=refine.n)
+        bmat <- backsolve(hmatb, bmat, upper=TRUE) /
+            rep(sqrt(rchisq(refine.n, df=rdf)/rdf), each=nfrail)
+        bmat2 <- bmat + fit$beta[1:nfrail]  #recenter
+
+        rfit <- .C(rfile,
+                   as.integer(refine.n),
+                   as.double(fit$beta),
+                   as.double(bmat2),
+                   loglik = double(refine.n), dup=FALSE)
+
+        # Penalty terms
+        penalty1 <- colSums(bmat2*(ikmat %*% bmat2))/2
+        penalty2 <- rowSums((t(bmat) %*% hmatb)^2 )/2
+
+        # Constant for the Gaussian density,  and density of the t-dist (logs)
+        gdens <- -0.5* (sum(log(diag(gkmat))) + nfrail*log(2* pi))
+        logdet <- -sum(log(diag(hmatb)))
+        tdens <- lgamma((nfrail + rdf)/2) - 
+                (lgamma(rdf/2) + 0.5*(logdet + nfrail* log(pi*rdf) + 
+                 (nfrail+ rdf)* log(1 + 2*penalty2/rdf)))
+        
+        # Add it up, we have to be very careful about round-off
+        n1 <- rfit$loglik + gdens - (penalty1 + ilik + tdens)
+        n2 <- fit$loglik[2] + gdens - (penalty2 + ilik + tdens)
+        temp <- max(n1, n2)  #scale so the largest value is about 1
+        errhat <- (exp(n1-temp) - exp(n2-temp)) * exp(temp)
+        #errhat <- (exp(rfit$loglik -(penalty1 + ilik)) - 
+        #        exp(fit$loglik[2]- (penalty2 + ilik))) * exp(gdens-tdens)
+        mtemp <- mean(errhat)             #estimated integral
+        stemp <- sqrt(var(errhat)/refine.n)   #std of the estimate
+        r.correct <- c(correction= log(1+ mtemp), std=stemp/(1 +mtemp)) #log scale
+        #ilik <- ilik + r.correct[1]
+    }
+    .C("coxfit6e", as.integer(ncol(y)))  #release memory
     idf <- nvar + sum(ntheta)
     fcoef <- fit$beta[1:nfrail]
     penalty <- sum(fcoef * (ikmat %*% fcoef))/2
@@ -354,9 +375,10 @@ coxme.fit <- function(x, y, strata, offset, ifixed, control,
         #The next line can be turned on for detailed tests in refine.R
         #  The feature is not documented in the manual pages, only
         #  here.
-        if (exists("coxme.refine.debugswitch") && coxme.refine.debugswitch)
-            out$refine.debug <-list(loglik=rfit$loglik, bmat=bmat,
-                                           errhat=errhat, gkmat=gkmat)
+        if (control$refine.detail)
+            out$refine.detail <-list(loglik=rfit$loglik, bmat=bmat2, tdens=tdens,
+                                    penalty1=penalty1, penalty2=penalty2,
+                                    gdens=gdens, errhat=errhat, gkmat=gkmat)
         }
     out
     }

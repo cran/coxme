@@ -48,7 +48,7 @@ fit1 <- coxme(Surv(zero, time, status) ~ x1 + x2 + (1|grp), data=tdata1,
 
 temp <- solve(fit0$hmat, fit0$u)
 temp[1:4] <- temp[1:4] - mean(temp[1:4])
-aeq(temp, c(unlist(fit1$frail), coef(fit1)$fixed))
+aeq(temp, c(unlist(ranef(fit1)), fixef(fit1)))
 
 # Now test out Breslow/cox
 fit0 <- coxme(Surv(time, status) ~ x1 + x2 + (1|grp), data=tdata1,

@@ -1,4 +1,3 @@
-/* $Id: coxfit6c.c,v 1.5 2003/08/09 21:45:31 therneau Exp $  */
 /*
 **  When iteration is done, this returns all of the other pieces that
 **   were saved.
@@ -60,7 +59,12 @@ void coxfit6c(double *u,      double *imatb,
     for (i=ns; i<nvar3; i++) {
 	for (j=0; j<nvar3; j++) *dptr++ = c6.imat[i][j];
 	}
+}
 
+
+void coxfit6e(Sint *ny){
+    int nvar2;
+    nvar2 = c6.nvar + (c6.nfrail - c6.nfactor); /*number of columns of X*/
     /*
     ** Release all the memory
     **  Somewhere I read that it's better to do this in the reverse order

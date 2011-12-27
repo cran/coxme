@@ -107,9 +107,9 @@ aeq(solve(fit3b$hmat, fit3b$u), step2)
 
 fit3a.1 <- coxme(Surv(time, status) ~ age + trt + (1|inst) + (trt|inst),
                simdata, vfixed=list(.1,.3), iter=1)
-aeq(c(unlist(fit3a.1$frail), fixef(fit3a.1)), step1)
+aeq(c(unlist(ranef(fit3a.1)), fixef(fit3a.1)), step1)
 
 fit3b.1 <-  coxme(Surv(time, status) ~ age + trt + (1|inst/trt), simdata,
                varlist=coxmeMlist(list(mat2, mat3), rescale=F, pdcheck=F),
                vfixed=c(.1,.3), iter=1)
-aeq(c(unlist(fit3b.1$frail), fixef(fit3b.1)), step2)
+aeq(c(unlist(ranef(fit3b.1)), fixef(fit3b.1)), step2)

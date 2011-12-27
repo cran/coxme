@@ -1,0 +1,242 @@
+\section{Matrix conversions}
+ The package currently uses objects from both the \emph{Matrix} and
+the \emph{bdsmatrix} libraries.
+The former are the basic unit for the [[lmekin]] function, and are
+returned as kinship matrices by the \emph{kinship2} library.
+Bsdmatrix objects are the main tool for the internal routines of 
+[[coxme]], although there is a long term goal of changing that in
+order to gain more flexibility.
+
+In the meantime, we need programs to convert from one to the other.
+The major nuisance is that the sparse portion of a bdsmatrix object
+is stored in row-major order, equivalent to an upper triangular
+dsRMatrix object in the Matrix library. 
+However, the routines we need to use for QR
+decompostions are supported for column-major sparse objects.  Our
+first routine, therefore, is one for rearrangement of a sparse
+block.
+Consider a 4 by 4 sparse in bdsmatrix order
+$$
+\left( \begin{array}{cccc}
+  1\\ 2&5 \\ 3&6&8 \\ 4&7&9&10
+  \end{array} \right)
+$$
+A dsCMatrix object expects the order 1, 2,5, 3,6,8, 4,7,9,10; read across
+the rows rather than down.
+In the other direction we want the inverse of this, namely
+1, 2, 4, 7, 3, 5, 8, 6, 9, 10; which are the positions of 1, 2, 3, \ldots
+in the first list.
+(Conversely, our first list is the positions of 1, 2, 3, \ldots in 
+this list.)
+
+<<bdsmatrix>>=
+rowTocol <- function(bs) {  #bs = size of block
+    n <- (bs*(bs+1))/2
+    indx <- integer(n)
+    offset <- c(0L, cumsum(seq.int(bs-1, 1)))
+    k <- 1L
+    for (i in seq.int(1,bs)) {
+        for (j in 1:i ) {
+            indx[k] <- i + offset[j]
+            k <- k+1
+            }
+        }
+    indx                              
+}
+
+colTorow <- function(bs) {  #bs = size of block
+    n <- (bs*(bs+1))/2
+    indx <- integer(n)
+    offset <- c(0L, cumsum(seq.int(1, bs-1)))
+    k <- 1L
+    for (i in seq.int(1,bs)) {
+        for (j in seq.int(i, bs) ) {
+            indx[k] <- i + offset[j]
+            k <- k+1
+            }
+        }
+    indx                              
+}
+@ 
+
+To correctly convert the whole list of blocks we
+add an offset to each, which is the cumulative total
+for the blocks preceding it.
+
+
+Now for the actual conversion, which is mostly a
+bookkeeping/counting operation. 
+The majority of the work is creating
+the indices for the second object.  In the rare case
+that the bdsmatrix object has no sparse portion we 
+can convert the rmat portion directly using the [[symmpart]]
+function.
+<<bdsmatrix>>=
+setAs("bdsmatrix", "dsCMatrix", function(from) {
+    rownum <- function(z) unlist(lapply(1:z, function(r) 1:r))
+    nb <- from@blocksize* (from@blocksize+1)/2  #elements per block
+    if (length(from@blocks)==0) symmpart(Matrix(from@rmat))
+    else {
+        temp <- vector('list', length(nb))
+        bstart <- c(0, cumsum(from@blocksize)) #offset of each block
+        for (i in 1:length(nb)) 
+            temp[[i]] <- rownum(from@blocksize[i]) + bstart[i]
+        m.i <- unlist(temp)
+        m.p <- unlist(lapply(from@blocksize, function(x) seq(1,x)))
+
+        xindx <- unlist(sapply(from@blocksize, rowTocol)) +
+                 rep.int(c(0, cumsum(nb))[1:length(nb)], nb)      
+        m.x <- from@blocks[xindx]
+        if (length(from@rmat >0)) {
+            nc <- ncol(from@rmat)  #number of columns in rmat
+            nr <- nrow(from)     #total number of rows
+            ii <- seq(to=nr, length=nc)
+            m.i <- c(m.i, unlist(lapply(ii, function(r) 1:r)))
+            m.p <- c(m.p, ii)
+            m.x <- c(m.x, from@rmat[row(from@rmat) <= nr + col(from@rmat) -nc])
+            }          
+        new("dsCMatrix", 
+                 i = as.integer(m.i-1),
+                 p = as.integer(c(0, cumsum(m.p))),
+                 Dim= dim(from),
+                 Dimnames=dimnames(from),
+                 x= m.x,
+                 uplo='U',
+                 factors=list())
+    }
+})             
+@ 
+
+Conversion of the result of a cholesky decompostion leads to the
+same matrix form.  However, the dtCMatrix object is an L'L
+decompostion, not an LDL' one, so we have to multiply things
+out.
+the same.
+<<bdsmatrix>>=
+setAs("gchol.bdsmatrix", "dtCMatrix", function(from) {
+    dd <- sqrt(diag(from))  #the multiplication factor
+    rownum <- function(z) unlist(lapply(1:z, function(r) 1:r))
+    nb <- from@blocksize* (from@blocksize+1)/2  #elements per block
+    if (length(from@blocks)>0){
+        temp <- vector('list', length(nb))
+        bstart <- c(0, cumsum(from@blocksize)) #offset of each block
+        for (i in 1:length(nb)) 
+            temp[[i]] <- rownum(from@blocksize[i]) + bstart[i]
+        m.i <- unlist(temp)
+        m.p <- unlist(lapply(from@blocksize, function(x) seq(1,x)))
+
+        xindx <- unlist(sapply(from@blocksize, rowTocol)) +
+                 rep.int(c(0, cumsum(nb))[1:length(nb)], nb)      
+        m.x <- from@blocks[xindx]
+
+        if (length(from@rmat >0)) {
+            nc <- ncol(from@rmat)  #number of columns in rmat
+            nr <- nrow(from)     #total number of rows
+            ii <- seq(to=nr, length=nc)
+            m.i <- c(m.i, unlist(lapply(ii, function(r) 1:r)))
+            m.p <- c(m.p, ii)
+            m.x <- c(m.x, from@rmat[row(from@rmat) <= nr + col(from@rmat) -nc])
+        }
+    }
+    else {
+        nc <- ncol(from@rmat)  #number of columns in rmat
+        nr <- nrow(from)     #total number of rows
+        ii <- seq(to=nr, length=nc)
+        m.i <- unlist(lapply(ii, function(r) 1:r))
+        m.p <- ii
+        m.x <- from@rmat[row(from@rmat) <= nr + col(from@rmat) -nc]
+    } 
+        
+    #Modify x
+    m.x <- m.x * dd[m.i]  # fixes the off diagonals
+    m.x[rep(1:length(m.p), m.p) ==m.i] <- dd  #diagonals
+    new("dtCMatrix", 
+        i = as.integer(m.i-1),
+        p = as.integer(c(0, cumsum(m.p))),
+        Dim= dim(from),
+        Dimnames=from@Dimnames,
+        x= m.x,
+        uplo='U',
+        diag='N')
+})             
+@ 
+
+If someone is using the original kinship library then kinship
+matrices will be a bdsmatrix object, if they are using
+kinship2 they will be Matrix objects.
+For now, we want to turn Matrix objects into bdsmatrix ones.
+Doing so in the most general way is not trivial since that would
+involve recognizing a best rmat portion.  We simply find connected
+blocks, which will work for kinship matrices.  
+
+Our first job is to recognize a block. 
+A dsCMatrix stores the upper triangle of the matrix, so for
+any column it is easy to see the minimal row index with a 
+non-zero value.
+Imagine starting at the lower left corner, then move to the
+left keeping track of the lowest row number seen so far.
+Suppose at column $k$ the min so far is also $k$.  Then we
+know that the lower $k$ by $k$ block must have only zeros
+above it, and by symmetry only zeros to the left.  Set it
+aside and start over.  We see that
+any column for which the minimal index for all columns to the
+right = the current column number will be
+the start of a block.
+Assuming that the row indices are in increasing
+order (I have not yet seen an exception),
+then [[x@i[x@p[1:ncol]] ]] will be the index of these minimal elements,
+using the 0 based indexing of Matrix objects.
+
+Given a block, note that we can't use the simple colTorow function     %'
+above to rearrange its contents; the Matrix object will have ``holes'' in it.
+For example, in a simple family of 2 founders and their 3 children
+the bdsmatrix object will be a 5 by 5 block with a zero for the
+pair of founders; the Matrix object from kinship2 will supress the
+zero.  
+The natrual thing is to use x[i,i] where i is the integer vector
+delimiting the block.  
+However, at this time Matrix (version 1.0-1) has a major memory
+leak when subscripting a sparse matrix.
+The work around is the [[getblock]] function below.
+It can very quickly extract the relevant portion of the
+dsCMatrix object, under the assumption that the matrix is block
+diagonal and we are extracting an entire block.
+Because of marry-ins to a pedigree the case where start=end is
+quite common so we treat it as a special case.
+<<bdsmatrix>>=
+# Code to find the subset myself
+#  This ONLY works for the special case below
+getblock <- function(x, start, end) {
+    nrow <-  as.integer(1+end-start)
+    xp <- x@p[start:(end+1)]
+    if (nrow==1) return(x@x[xp[1]+1])  #singleton element
+
+    keep <- (1+min(xp)):max(xp)   
+    new("dsCMatrix", i=x@i[keep]+ 1L - as.integer(start), 
+        p= xp- min(xp), 
+        Dim=c(nrow, nrow), Dimnames=list(NULL, NULL),
+        x = x@x[keep], uplo=x@uplo, factors=list())
+}
+
+setAs("dsCMatrix", "bdsmatrix", function(from) {
+    dd <- dim(from)
+    if (dd[1] != dd[2]) stop("Variance matrices must be square")
+
+    nc <- ncol(from)
+    minrow <- from@i[from@p[1:nc] +1] +1
+    minrow <- rev(cummin(rev(minrow)))
+    block.start <- which(1:nc == minrow)
+    block.end <- c(block.start[-1] -1, ncol(from))
+    nblock <- length(block.start)
+                     
+    blocks <- vector('list', nblock)  
+    for (i in 1:nblock) {
+#        indx <- block.start[i]:block.end[i]
+#        blocks[[i]] <- as.matrix(from[indx, indx])
+        blocks[[i]] <- as.matrix(getblock(from, block.start[i], block.end[i]))
+    }
+    bdsmatrix(blocksize=sapply(blocks, nrow), blocks=unlist(blocks), 
+              dimnames=dimnames(from))
+    })
+@ 
+

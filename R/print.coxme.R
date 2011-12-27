@@ -8,7 +8,7 @@ print.coxme <- function(x, rcoef=FALSE, digits=options()$digits, ...) {
     else cat("\n")
 
     beta <- x$coefficients
-    nvar <- length(beta$fixed)
+    nvar <- length(beta)
     nfrail<- nrow(x$var) - nvar
 
     omit <- x$na.action
@@ -37,21 +37,20 @@ print.coxme <- function(x, rcoef=FALSE, digits=options()$digits, ...) {
                     round(chi2- log(x$n[1])*x$df[2],2)))
     dimnames(temp) <- list(c("Integrated loglik", " Penalized loglik"),
                            c("Chisq", "df", "p", "AIC", "BIC"))
-    print(temp, quote=F)
+    print(temp, quote=F, digits=digits)
 
     cat ("\nModel: ", deparse(x$call$formula), "\n")
 
     if (nvar > 0)  { # Not a ~1 model
-        coef <- beta$fixed
         se <- sqrt(diag(x$var)[nfrail+1:nvar])
-        tmp <- cbind(coef, exp(coef), se, round(coef/se,2),
-               signif(1 - pchisq((coef/ se)^2, 1), 2))
-        dimnames(tmp) <- list(names(coef), c("coef", "exp(coef)",
+        tmp <- cbind(beta, exp(beta), se, round(beta/se,2),
+               signif(1 - pchisq((beta/ se)^2, 1), 2))
+        dimnames(tmp) <- list(names(beta), c("coef", "exp(coef)",
             "se(coef)", "z", "p"))
         }
     if (rcoef) { # print the random coefs
         #next line unlists, trying to give good names to the coefs
-        coef <- unlist(lapply(x$frail, function(y) {
+        coef <- unlist(lapply(ranef(x), function(y) {
             if (is.matrix(y)) {
                 z <- c(y)
                 dd <- dimnames(y)
@@ -68,20 +67,20 @@ print.coxme <- function(x, rcoef=FALSE, digits=options()$digits, ...) {
 
     if (nvar>0 && rcoef) {
         cat("Fixed and penalized coefficients\n")
-        print(rbind(tmp, cbind(rtmp,NA,NA)), na.print='')
+        print(rbind(tmp, cbind(rtmp,NA,NA)), na.print='', digits=digits)
         }
     else if (rcoef) {
         cat("Penalized coefficients\n")
-        print(rtmp)
+        print(rtmp, digits=digits)
         }
     else if (nvar>0) {
         cat("Fixed coefficients\n")
-        print(tmp)
+        print(tmp, digits=digits)
         }
 
     cat("\nRandom effects\n")
 
-    random <- x$coefficients$random
+    random <- VarCorr(x)
     gname <- names(random)
     nrow <-  sapply(random, 
                     function(x) if (is.matrix(x)) nrow(x) else length(x))
@@ -115,13 +114,15 @@ print.coxme <- function(x, rcoef=FALSE, digits=options()$digits, ...) {
     temp3[indx[-length(indx)]] <- names(random)
     xname <- unlist(lapply(random, 
                   function(x) if (is.matrix(x)) dimnames(x)[[1]] else names(x)))
-    temp <- cbind(temp3, xname, ifelse(is.na(temp1), "", format(temp1)))
+    temp <- cbind(temp3, xname, ifelse(is.na(temp1), "", 
+                                       format(temp1, digits=digits)))
     if (maxcol == 2)
         temp4 <- c("Group", "Variable", "Std Dev", "Variance")
     else 
         temp4 <- c("Group","Variable", "Std Dev", "Variance", "Corr", 
                    rep("", maxcol-3))
     dimnames(temp) <- list(rep("", nrow(temp)), temp4)
+
     print(temp, quote=F)
     invisible(x)
     }

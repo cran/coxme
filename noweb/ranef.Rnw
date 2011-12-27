@@ -8,7 +8,7 @@ If nlme is loaded first, I don't want to re-define these functions.
 If I do, then the ranef.lme method becomes invisible.  
 It appears to be a design decision: R doesn't know
 that my ranef function is identical to the ones in nlme, and
-so it 'forgets' the old methods in order to avoid inconsistency.
+so it `forgets' the old methods in order to avoid inconsistency.
 The obvious solution to this is to check for existence of the functions
 before defining them.
 However, this doesn't work with namespaces -- you either have the file
@@ -24,7 +24,7 @@ R now finds them by standard mechanisms outside the name space structure.
 After some discussion on the R developer list, it was decided that the
 only workable solution was to include the line
 \begin{quote}
-   importFrom(nlme, ranef, fixef)
+   importFrom(nlme, ranef, fixef, VarCorr)
 \end{quote}
 into both coxme and lme4, importing the generic from the original nlme
 package.  It is the only way for the R exectutive to know that all the
@@ -33,8 +33,28 @@ instances of a method are legal.
 <<ranef>>=
 # The objects that do the actual work (not much work)
 fixef.coxme <- function(object, ...)
+    object$coefficients
+
+fixef.lmekin <- function(object, ...)
     object$coefficients$fixed
 
 ranef.coxme <- function(object, ...)
+    object$frail
+
+ranef.lmekin <- function(object, ...)
     object$coefficients$random
+
+VarCorr.coxme <- function(x, ...) 
+    x$vcoef
+    
+VarCorr.lmekin <- function(x, ...) 
+    x$vcoef
+
+vcov.coxme <- function(object, ...) {
+    nf <- length(fixef(object))
+    indx <- seq(length=nf, to=nrow(object$var))
+    as.matrix(object$var[indx, indx])
+}
+
+vcov.lmekin <- vcov.coxme    
 @ 

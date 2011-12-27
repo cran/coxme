@@ -41,11 +41,11 @@ fit1 <- coxme(Surv(t1, t2, status) ~ x1 + x2 +(1|grp), data=tdata2,
 #  ignore the complaint
 fit2 <- coxph(Surv(t1, t2, status) ~ I(grp==2) + I(grp==3) + I(grp==4) +
 	      I(grp==1) + x1 + x2, data=tdata2, method='breslow',
-	      init=c(unlist(fit1$frail), fit1$coef$fixed),
+	      init=c(unlist(ranef(fit1)), fixef(fit1)),
 	      iter=0)
 
-lp <- c(cbind(tdata2$x1, tdata2$x2) %*% fit1$coef$fixed + 
-	unlist(fit1$frail)[c(4,1,2,3)[tdata2$grp]])
+lp <- c(cbind(tdata2$x1, tdata2$x2) %*% fixef(fit1) + 
+	unlist(ranef(fit1))[c(4,1,2,3)[tdata2$grp]])
 aeq(lp, fit1$linear)
 fit3 <- coxph(Surv(t1, t2, status) ~ offset(lp), data=tdata2, method='breslow')
 
@@ -56,7 +56,7 @@ aeq(fit3$loglik, fit2$loglik[2])
 #
 # And now, do it mostly by hand as the definitive check
 #
-lp2 <- fit1$linear - sum(fit1$mean * fit1$coef$fixed)
+lp2 <- fit1$linear - sum(fit1$mean * fixef(fit1))
 temp.risk <- exp(lp2)
 dtimes <- sort(unique(tdata2$t2[tdata2$status==1]))
 nd <- length(dtimes)
@@ -73,7 +73,7 @@ for (i in 1:nd) {
 temp.log <- sum(lp2[tdata2$status==1] -
 		log(denom[match(tdata2$t2[tdata2$status==1], dtimes)]))
 aeq(fit1$loglik[3] + fit1$pen, temp.log)
-aeq(fit1$penalty, sum(unlist(fit1$frail)^2)/(2*theta))
+aeq(fit1$penalty, sum(unlist(ranef(fit1))^2)/(2*theta))
 # The linear predictors will differ by a constant, since fit2 will have
 #   subtracted means from the factor terms.
 aeq(diff(range(fit1$linear-fit2$linear)),0)
@@ -81,7 +81,7 @@ aeq(diff(range(fit1$linear-fit2$linear)),0)
 # Score statistic
 temp.score <- xtemp[tdata2$status==1,] - 
 	      xbar[match(tdata2$t2[tdata2$status==1], dtimes),]
-aeq(colSums(temp.score) - c(unlist(fit1$frail),0,0)/theta, fit1$u)
+aeq(colSums(temp.score) - c(unlist(ranef(fit1)),0,0)/theta, fit1$u)
 
 
 dt <- coxph.detail(fit2, riskmat=T)

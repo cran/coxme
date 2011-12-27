@@ -111,7 +111,7 @@ $C$ and whether or not the left hand side contained an intercept, and
 appropriate portions of the initial values (vinit) or fixed variance
 (vfixed) specification.
 It returns corresponding columns of $F$, $Z$ and a mapping [[zmap]] for
-each column of $Z$,  a vector [[theta]] containing
+each column of $Z$,  a vector [[itheta]] containing
 the initial values for the non-fixed variance parameters (possibly on
 a transformed scale), and a private 
 parameter list which will be passed forward to the matching [[generate]]
@@ -203,7 +203,8 @@ if (!is.null(names(varlist))) { # put it in the right order
         }
     }
     
-sapply(varlist, function(x) {
+#check validity (result is never used)
+check <- sapply(varlist, function(x) {
        fname <- c("initialize", "generate", "wrapup")
        indx <- match(fname, names(x))
        if (any(is.na(x)))
@@ -232,7 +233,7 @@ be the identity-by-descent (IBD) matrix for a particular locus.
 
 Now we proceed through the list one element at a time, and do the necessary
 setup.
-The [[theta]] vector will contain starting values for all of the
+The [[itheta]] vector will contain starting values for all of the
 variance parameters that are \emph{not} fixed, and [[ntheta[i]]] the
 number of values that each random term contributed.
 The final $\theta$ vector will be null if all the parameters are fixed. 
@@ -248,7 +249,7 @@ The definition of 4 helper functions is deferred until later.
 fmat <- zmat <- matrix(0, nrow=n, ncol=0)
 ntheta <- integer(nrandom)
 ncoef  <- matrix(0L, nrandom, 2, dimnames=list(NULL, c("intercept", "slope")))
-theta <-  NULL   #initial values of parameters to iterate over
+itheta <-  NULL   #initial values of parameters to iterate over
 
 for (i in 1:nrandom) {
     f2 <- formula2(flist$random[[i]])
@@ -266,7 +267,7 @@ for (i in 1:nrandom) {
         stop(paste("In random term ", i, ": ", ifun$error, sep=''))
     vparm[[i]] <- ifun$parms
 
-    theta <- c(theta, ifun$theta)
+    itheta <- c(itheta, ifun$theta)
     ntheta[i] <- length(ifun$theta)
 
     if (f2$intercept) {
@@ -385,8 +386,8 @@ managable chunks.
 fit <- coxme.fit(X, Y, strats, offset, init, control, weights=weights,
                  ties=ties, row.names(m),
                  fmat, zmat, varlist, vparm, 
-                 theta, ntheta, ncoef, refine.n)
-@ 
+                 itheta, ntheta, ncoef, refine.n)
+@  
 
 Then we finish up by packaging up the results for a user.
 The first few lines are the case where a fatal error occured, in which
@@ -402,12 +403,9 @@ if (is.character(fit)) {
 
 Now add labels to the fixed and random coefficients.
 The [[coefficients]] portion of the returned object conttains the
-values for $\hat \beta$ (fixed) and for the variances $\hat \theta$.
-The [[frail]] component contains the values for $\hat b$.
-(Why not call the returned variable [[b]]?  First because single letter
-components can cause unexpected grief later, [[fit$b]] might end up
-fetching something else that starts with a `b'.  Second because the  %'`
-original coxme function used this.)
+values for $\hat \beta$ (fixed). and for the variances $\hat \theta$.
+The [[frail]] component contains the values for $\hat b$, a
+historical label.
 <<finish-up>>=
 fcoef <- fit$coefficients
 nvar <- length(fcoef)
@@ -418,22 +416,21 @@ if (length(fcoef)>0 && any(is.na(fcoef))) {
     warning(msg)
     }
 if (length(fcoef) >0) {
-    names(fcoef) <- dimnames(X)[[2]]
+    names(fit$coefficients) <- dimnames(X)[[2]]
     }
 @ 
 
 Add up the part of the linear predictor due to random terms, 
-and add this to the fixed portion to get a linear predictor
+and add this to the fixed portion to get an overall linear predictor.
 <<finish-up>>=
 rlinear <- rep(0., nrow(Y))
-indx <- 0
 if (length(fmat)) {
     for (i in 1:ncol(fmat)) {
-        rlinear <- rlinear + fit$frail[fmat[,i]+indx]
-        indx <- indx + max(fmat[,i])
+        rlinear <- rlinear + fit$frail[fmat[,i]]
         }
     }
 if (length(zmat)) {
+    indx <- if (length(fmat)>0) max(fmat) else 0
     for (i in 1:ncol(zmat))
         rlinear <- rlinear + fit$frail[indx+i]*zmat[,i]
     }
@@ -447,11 +444,26 @@ Our last action for the random terms is to call the
 $\theta$ back to the user's scale, re-insert (if needed)  %'
 any fixed parameters, label the vector, and label/arrange
 the random coefficients $b$.
+
+Intercept terms always come first in the random coefficients.
+In a model with \texttt{(trt|group) + (1|group)} on the
+right, the ncoef object will be
+\begin{verbatim}
+     intercept slope
+[1,]         0     5
+[2,]         5     0
+\end{verbatim}
+which means that the first 5 elements of $b$= \verb!fit$frail!
+belong to term2, and the second five to term 1. (Also that
+my example data had 5 levels for the group variable).
+The creation of [[bindex]] below depends on the fact that R
+stores matrices in row major order so it will go through
+the intercepts first and the other random coefficients second.
 <<finish-up>>=
 newtheta <- random.coef <- list()  
 nrandom <- length(varlist)
-sindex <- rep(1:nrandom, ntheta) #which thetas to which terms
-bindex <- rep(1:nrandom, rowSums(ncoef)) # which b's to which terms
+sindex <- rep(1:nrandom, ntheta) # which thetas to which terms
+bindex <- rep(row(ncoef), ncoef) # which b's to which terms
 for (i in 1:nrandom) {
     temp <- varlist[[i]]$wrapup(fit$theta[sindex==i], fit$frail[bindex==i], 
                                 vparm[[i]])
@@ -462,10 +474,9 @@ for (i in 1:nrandom) {
         }
     random.coef <- c(random.coef, temp$b)
     }
-
-fit$coefficients <- list(fixed=fcoef, random=newtheta)
 fit$frail <- random.coef
-fit$beta <- NULL
+
+fit$vcoef <- newtheta
 fit$theta <- NULL
 @ 
  

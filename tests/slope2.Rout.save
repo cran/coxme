@@ -1,5 +1,5 @@
 
-R version 2.13.0 (2011-04-13)
+R version 2.14.0 (2011-10-31)
 Copyright (C) 2011 The R Foundation for Statistical Computing
 ISBN 3-900051-07-0
 Platform: x86_64-unknown-linux-gnu (64-bit)
@@ -20,7 +20,25 @@ Type 'q()' to quit R.
 Loading required package: survival
 Loading required package: splines
 Loading required package: bdsmatrix
+
+Attaching package: 'bdsmatrix'
+
+The following object(s) are masked from 'package:base':
+
+    backsolve
+
 Loading required package: nlme
+Loading required package: Matrix
+Loading required package: lattice
+
+Attaching package: 'Matrix'
+
+The following object(s) are masked from 'package:base':
+
+    det
+
+Warning message:
+replacing previous import 'diag' when loading 'Matrix' 
 > options(na.action='na.exclude', contrasts=c('contr.treatment', 'contr.poly'))
 > aeq <- function(x,y, ...) all.equal(as.vector(x), as.vector(y), ...)
 > 
@@ -75,7 +93,7 @@ Loading required package: nlme
 +                varlist=list(mat1, mat2), vinit=c(.1, .1))
 > aeq(fit2$log, fit2b$log)
 [1] TRUE
-> aeq(as.matrix(fit2$var), as.matrix(fit2b$var))
+> aeq(as.matrix(fit2$var), as.matrix(fit2b$var), tol=1e-7)
 [1] TRUE
 > aeq(fixef(fit2), fixef(fit2b))
 [1] TRUE
@@ -93,7 +111,7 @@ Loading required package: nlme
 [1] TRUE
 > aeq(fixef(fit3), fixef(fit3b))
 [1] TRUE
-> all.equal(unlist(ranef(fit3)), unlist(ranef(fit3b)), tolerance=1e-7, 
+> all.equal(unlist(VarCorr(fit3)), unlist(VarCorr(fit3b)), tolerance=1e-7, 
 +           check.attributes=FALSE)
 [1] TRUE
 > # This function should map between coefficients
@@ -106,8 +124,9 @@ Loading required package: nlme
 > map[19,19] <- 1
 > map[20,20] <- 1
 > 
-> aeq(c(unlist(fit3$frail)), c(map[1:18,1:18] %*% unlist(fit3b$frail)))
+> aeq(c(unlist(ranef(fit3))), c(map[1:18,1:18] %*% unlist(ranef(fit3b))))
 [1] TRUE
-> aeq(as.matrix(fit3$var), map %*% as.matrix(fit3b$var) %*% t(map))
+> aeq(as.matrix(fit3$var), map %*% as.matrix(fit3b$var) %*% t(map),
++     tol=1e-7)
 [1] TRUE
 > 

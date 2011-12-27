@@ -1,5 +1,5 @@
 
-R version 2.13.0 (2011-04-13)
+R version 2.14.0 (2011-10-31)
 Copyright (C) 2011 The R Foundation for Statistical Computing
 ISBN 3-900051-07-0
 Platform: x86_64-unknown-linux-gnu (64-bit)
@@ -20,7 +20,25 @@ Type 'q()' to quit R.
 Loading required package: survival
 Loading required package: splines
 Loading required package: bdsmatrix
+
+Attaching package: 'bdsmatrix'
+
+The following object(s) are masked from 'package:base':
+
+    backsolve
+
 Loading required package: nlme
+Loading required package: Matrix
+Loading required package: lattice
+
+Attaching package: 'Matrix'
+
+The following object(s) are masked from 'package:base':
+
+    det
+
+Warning message:
+replacing previous import 'diag' when loading 'Matrix' 
 > options(na.action='na.exclude')
 > aeq <- function(x,y) all.equal(as.vector(x), as.vector(y))
 > 
@@ -78,14 +96,14 @@ Loading required package: nlme
 +               vfixed=theta, iter=1, sparse=c(10, .1))
 > update0 <- solve(fit0$hmat, fit0$u)
 > update0[1:50] <- update0[1:50] - mean(update0[1:50])
-> aeq(update0, c(unlist(fit1$frail), coef(fit1)$fixed))
+> aeq(update0, c(unlist(ranef(fit1)), fixef(fit1)))
 [1] TRUE
 > tfit <- coxph(Surv(time, status) ~ factor(litter) + rx,
 +               data=rats, x=T, iter=0,
-+               init=c(unlist(fit1$frail), coef(fit1)$fixed))
++               init=c(unlist(ranef(fit1)), fixef(fit1)))
 > dt1 <- coxph.detail(tfit)
 > 
-> aeq(apply(dt1$score,2,sum)- c(unlist(fit1$frail), 0)/theta, fit1$u)
+> aeq(apply(dt1$score,2,sum)- c(unlist(ranef(fit1)), 0)/theta, fit1$u)
 [1] TRUE
 > h1 <- apply(dt1$imat,1:2,sum) + diag(c(rep(1/theta, 50),0))
 > h1[1:50,1:50] <- diag(diag(h1)[1:50])
@@ -103,8 +121,8 @@ Loading required package: nlme
 > 
 > update1 <- solve(fit1$hmat, fit1$u)
 > update1[1:50] <- update1[1:50] - mean(update1[1:50])
-> aeq(update1, c(unlist(fit2$frail), coef(fit2)$fixed) -
-+     c(unlist(fit1$frail), coef(fit1)$fixed))
+> aeq(update1, c(unlist(ranef(fit2)), fixef(fit2)) -
++     c(unlist(ranef(fit1)), fixef(fit1)))
 [1] TRUE
 > 
 > #
