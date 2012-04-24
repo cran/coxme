@@ -159,8 +159,8 @@ and 2.21)
 \begin{align}
   \hat\beta(\theta) &= R_{22}^{-1} c_2  \label{bhat}\\
   \hat\sigma^2(\theta) &= ||c_3||^2/n  \label{sighat}\\
-  \log(L(\theta)) &= \frac{n}{2}\left[\log n - \log(2\pi) -1\right] -
-    n\log |c_2| + \log\left({\rm abs}\frac{|\Delta|}{|R_{11} \right) 
+  \log(L(\theta)) &= \frac{n}{2}\left[ \log n - \log(2\pi) -1 \right] -
+    n\log |c_2| + \log\left( {\rm abs} \frac{|\Delta|}{|R_{11}} \right) 
      \label{loghat}
 \end{align}
 Here $|c|$ is the norm of a vector $c$  and $|A|$ the determinant of a matrix
@@ -173,7 +173,7 @@ decompostions, but with
 \begin{align}
   \hat\sigma^2_{REML}(\theta) &= ||c_3||^2/(n-p)  \label{sighatREML}\\
   \log(L(\theta))_{REML} &= \frac{n}{2}\left[\log n - \log(2\pi) -1\right] -
-    (n-p)\log |c_2| + \log\left({\rm abs}\frac{|\Delta|}{|R|} \right) 
+    (n-p)\log |c_2| + \log \left( {\rm abs} \frac{|\Delta|}{|R|} \right) 
      \label{loghatREML}
 \end{align}
 
@@ -185,7 +185,7 @@ decompostions, but with
 @ 
 
 The define-penalty code is shared with coxme, it defines the
-function [[kfun]] which returns $\Delta$ given the parameters $\theta$.
+function [[kfun]] which returns $K/\sigma^2$ given the parameters $\theta$.
 The next bit of code defines $X^*$ and the top portion of $Z^*$
 as sparse Matrix objects.
 The definition $X^*$ is easy as we already have it in hand.  
@@ -361,8 +361,8 @@ At this point the optimal $\theta$ has been found.
 Now do one more pass with the ``internals'' of the logfun
 function, and compute other quantities that we didn't need    
 for the intermediate iterations.
-Remember that for the genetic problems lmekin was
-designed for $Z$ will be very large and sparse while $X$ will
+Remember that lmekin was designed for genetic problems,
+and for these $Z$ will be very large and sparse while $X$ will
 be modest. 
 We don't want to use the backsolve function on $Z$, since at the
 moment there is no sparse method.  Matrix multiplication,

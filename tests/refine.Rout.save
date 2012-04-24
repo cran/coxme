@@ -1,8 +1,8 @@
 
-R version 2.14.0 (2011-10-31)
-Copyright (C) 2011 The R Foundation for Statistical Computing
+R version 2.15.0 (2012-03-30)
+Copyright (C) 2012 The R Foundation for Statistical Computing
 ISBN 3-900051-07-0
-Platform: x86_64-unknown-linux-gnu (64-bit)
+Platform: i686-pc-linux-gnu (32-bit)
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
 You are welcome to redistribute it under certain conditions.
@@ -30,15 +30,6 @@ The following object(s) are masked from 'package:base':
 Loading required package: nlme
 Loading required package: Matrix
 Loading required package: lattice
-
-Attaching package: 'Matrix'
-
-The following object(s) are masked from 'package:base':
-
-    det
-
-Warning message:
-replacing previous import 'diag' when loading 'Matrix' 
 > options(na.action='na.exclude', contrasts=c('contr.treatment', 'contr.poly'))
 > aeq <- function(x,y, ...) all.equal(as.vector(x), as.vector(y), ...)
 > 
@@ -71,7 +62,8 @@ replacing previous import 'diag' when loading 'Matrix'
 > # Test out the refine.n code, using the simdata
 > #  A simple diagonal variance
 > #
-> nsim <- 100
+> # For original testing we had nsim=100, changed to 10 for a CRAN speedup
+> nsim <- 10
 > var  <- .3   #sizeable
 > 
 > set.seed(20)
@@ -128,3 +120,6 @@ Loading required package: mvtnorm
 [1] TRUE
 > 
 > 
+> proc.time()
+   user  system elapsed 
+  2.300   0.044   2.338 

@@ -1,48 +1,48 @@
 # Automatically generated from all.nw using noweb
-    coxme.fit <- function(x, y, strata, offset, ifixed, control,
-                            weights, ties, rownames, 
-                            imap, zmat, varlist, vparm, itheta,
-                            ntheta, ncoef, refine.n) {
-        time0 <- proc.time()
-        n <-  nrow(y)
-        if (length(x) ==0) nvar <-0
-        else nvar <- ncol(as.matrix(x))
-        
-        if (missing(offset) || is.null(offset)) offset <- rep(0.0, n)
-        if (missing(weights)|| is.null(weights))weights<- rep(1.0, n)
-        else {
-            if (any(weights<=0)) stop("Invalid weights, must be >0")
-            }
-        if (ncol(y) ==3) {
-            if (length(strata) ==0) {
-                sorted <- cbind(order(-y[,2], y[,3]), 
-                                order(-y[,1]))
-                newstrat <- n
-                }
-            else {
-                sorted <- cbind(order(strata, -y[,2], y[,3]),
-                                order(strata, -y[,1]))
-                newstrat  <- cumsum(table(strata))
-                }
-            status <- y[,3]
-            ofile <-  'agfit6b'
-            rfile <-  'agfit6d'
-            coxfitfun<- survival:::agreg.fit
+coxme.fit <- function(x, y, strata, offset, ifixed, control,
+                        weights, ties, rownames, 
+                        imap, zmat, varlist, vparm, itheta,
+                        ntheta, ncoef, refine.n) {
+    time0 <- proc.time()
+    n <-  nrow(y)
+    if (length(x) ==0) nvar <-0
+    else nvar <- ncol(as.matrix(x))
+    
+    if (missing(offset) || is.null(offset)) offset <- rep(0.0, n)
+    if (missing(weights)|| is.null(weights))weights<- rep(1.0, n)
+    else {
+        if (any(weights<=0)) stop("Invalid weights, must be >0")
+        }
+    if (ncol(y) ==3) {
+        if (length(strata) ==0) {
+            sorted <- cbind(order(-y[,2], y[,3]), 
+                            order(-y[,1]))
+            newstrat <- n
             }
         else {
-            if (length(strata) ==0) {
-                sorted <- order(-y[,1], y[,2])
-                newstrat <- n
-                }
-            else {
-                sorted <- order(strata, -y[,1], y[,2])
-                newstrat <-  cumsum(table(strata))
-                }
-            status <- y[,2]
-            ofile <- 'coxfit6b' # fitting routine
-            rfile <- 'coxfit6d' # refine.n routine
-            coxfitfun <- survival:::coxph.fit
+            sorted <- cbind(order(strata, -y[,2], y[,3]),
+                            order(strata, -y[,1]))
+            newstrat  <- cumsum(table(strata))
             }
+        status <- y[,3]
+        ofile <-  'agfit6b'
+        rfile <-  'agfit6d'
+        coxfitfun<- survival:::agreg.fit
+        }
+    else {
+        if (length(strata) ==0) {
+            sorted <- order(-y[,1], y[,2])
+            newstrat <- n
+            }
+        else {
+            sorted <- order(strata, -y[,1], y[,2])
+            newstrat <-  cumsum(table(strata))
+            }
+        status <- y[,2]
+        ofile <- 'coxfit6b' # fitting routine
+        rfile <- 'coxfit6d' # refine.n routine
+        coxfitfun <- survival:::coxph.fit
+        }
     if (is.null(ifixed) ) ifixed <- rep(0., ncol(x))
     else if (length(ifixed) != ncol(x))
         stop("Wrong length for initial parameters of the fixed effects")
@@ -71,54 +71,57 @@
         nrow.R <- sum(ncoef)
         ncol.R <- nrow.R - nsparse
         R <- matrix(0., nrow.R, ncol.R)
-        indx1 <- 0               #current offset  wrt filling in intercepts
-        indx2 <- sum(ncoef[,1])  #current offset  wrt filling in slopes
+        indx1 <- 0                  #current column offset wrt intercepts
+        indx2 <- sum(ncoef[,1]) -nsparse #current col offset wrt filling in slopes
         
         if (ncol(tmat) > nsparse) { #first matrix has an rmat component
-            k <- (nsparse+1):ncol(tmat)
-            temp <- as.matrix(tmat[k,k])
-
             if (ncoef[1,1] > nsparse) { #intercept contribution to rmat
-                j <- ncoef[1,1] - nsparse   #number of intercept columns
-                R[1:nrow(temp), 1:j] <- temp[,1:j]
-                indx1 <- indx1 +j
-
-                if (ncoef[1,2] >0) { #copy correlation with intercept
+                irow <- 1:ncoef[1,1]  #rows for intercepts
+                j <- ncoef[1,1] - nsparse   #number of dense intercept columns
+                R[irow, 1:j] <- tmat@rmat[irow,1:j]
+                indx1 <- j  #number of intercept processed so far
+                
+                if (ncoef[1,2] >0) {
+                    # T[1-62, 3-66] of the example above
                     k <- 1:ncoef[1,2]
-                    R[1:ncoef[1,1], indx2+k-nsparse] <- temp[1:ncoef[1,1], j+k]
-                    }
+                    R[irow, k+indx2-nsparse] <- tmat@rmat[irow, k+j]
+                }
                 }
             else j <- 0
             
             if (ncoef[1,2] >0) { #has a slope contribution to rmat
+                # T[63-128, 3-66] of the example above
                 k <- 1:ncoef[1,2]
-                R[indx2+k, indx2+k -nsparse] <- temp[ncoef[1,1]+k, j+k]
-                indx2 <- indx2 + ncoef[1,2]
+                R[k+indx2 +nsparse, k+ indx2] <- tmat@rmat[k+indx1, j+k]
+                indx2 <- indx2 + ncoef[1,2] #non intercetps so far
                 }
             }
-        
-        for (i in 2:nrandom) {
+     
+    for (i in 2:nrandom) {
             temp <- as.matrix(varlist[[i]]$generate(theta[sindex==i], vparm[[i]]))
             if (any(dim(temp) != rep(ncoef[i,1]+ncoef[i,2], 2)))
                 stop(paste("Invalid dimension for generated penalty matrix, term",
                            i))
             
             if (ncoef[i,1] >0)  { # intercept contribution
+                #U or V [1-8, 1-8] in the example above
                 j <- ncoef[i,1]
-                R[indx1 +1:j, indx1 +1:j-nsparse] <- temp[1:j,1:j]
-                indx1 <- indx1 + j
+                R[indx1 +1:j + nsparse, indx1 +1:j] <- temp[1:j,1:j]
                 
                 if (ncoef[i,2] >0) {
+                    # V[1-8, 9-24] in the example
                     k <- 1:ncoef[i,2]
-                    R[indx1+1:j, indx2 +k -nsparse] <- temp[1:j, k+ j]
-                    R[indx2+k, indx2 +k -nsparse] <- temp[k+j, k+j]
+                    R[indx1+ 1:j + nsparse, indx2 +k] <- temp[1:j, k+ j]
+                    # V[9-24, 9-24]
+                    R[indx2+k +nsparse, indx2 +k] <- temp[k+j, k+j]
                     }
                 }
             else if (ncoef[i,2]>0) {
                 k <- 1:ncoef[i,2]
-                R[indx2+k, indx2+k -nsparse] <- temp
+                R[indx2+k +nsparse, indx2+k] <- temp
                 }
-            indx2 <- indx2 +ncoef[i,2]
+            indx1 <- indx1 + ncoef[i,1]
+            indx2 <- indx2 + ncoef[i,2]
             }
         bdsmatrix(blocksize=tmat@blocksize, blocks=tmat@blocks, rmat=R)
         }    
@@ -317,40 +320,56 @@
         rdf <- control$refine.df
         nfrail <- ncol(gkmat)
         hmatb <- hmat[1:nfrail, 1:nfrail]
-        #create the random t-variate with variance H-inverse
-        bmat <- matrix(rnorm(nfrail*refine.n), ncol=refine.n)
-        bmat <- backsolve(hmatb, bmat, upper=TRUE) /
-            rep(sqrt(rchisq(refine.n, df=rdf)/rdf), each=nfrail)
-        bmat2 <- bmat + fit$beta[1:nfrail]  #recenter
-
+        if (control$refine.method == "control") {
+            #create the random t-variate with variance H-inverse
+            bmat <- matrix(rnorm(nfrail*refine.n), ncol=refine.n)
+            bmat <- backsolve(hmatb, bmat, upper=TRUE) /
+                rep(sqrt(rchisq(refine.n, df=rdf)/rdf), each=nfrail)
+            bmat2 <- bmat + fit$beta[1:nfrail]  #recenter
+        }
+        else if (control$refine.method == "direct") {
+            bmat <- matrix(rnorm(nfrail*refine.n), ncol=refine.n)
+            bmat2 <- gkmat %*% bmat
+        }
+        else stop("Unrecognized value for refine.method")
+        
         rfit <- .C(rfile,
                    as.integer(refine.n),
                    as.double(fit$beta),
                    as.double(bmat2),
                    loglik = double(refine.n), dup=FALSE)
 
-        # Penalty terms
-        penalty1 <- colSums(bmat2*(ikmat %*% bmat2))/2
-        penalty2 <- rowSums((t(bmat) %*% hmatb)^2 )/2
+        if (control$refine.method == "direct") {
+            temp <- max(rfit$loglik)   #keep exp() in range
+            errhat <- exp(rfit$loglik - temp) 
+            mtemp <- mean(errhat)             #estimated integral
+            stemp <- sqrt(var(errhat)/refine.n)   #std of the estimate
+            r.correct <- c(correction = log(mtemp) + temp -ilik, std= stemp/mtemp)
+        }
+        else {
+            # Penalty terms
+            penalty1 <- colSums(bmat2*(ikmat %*% bmat2))/2
+            penalty2 <- rowSums((t(bmat) %*% hmatb)^2 )/2
 
-        # Constant for the Gaussian density,  and density of the t-dist (logs)
-        gdens <- -0.5* (sum(log(diag(gkmat))) + nfrail*log(2* pi))
-        logdet <- -sum(log(diag(hmatb)))
-        tdens <- lgamma((nfrail + rdf)/2) - 
+            # Constant for the Gaussian density,  and density of the t-dist (logs)
+            gdens <- -0.5* (sum(log(diag(gkmat))) + nfrail*log(2* pi))
+            logdet <- -sum(log(diag(hmatb)))
+            tdens <- lgamma((nfrail + rdf)/2) - 
                 (lgamma(rdf/2) + 0.5*(logdet + nfrail* log(pi*rdf) + 
-                 (nfrail+ rdf)* log(1 + 2*penalty2/rdf)))
+                                      (nfrail+ rdf)* log(1 + 2*penalty2/rdf)))
         
-        # Add it up, we have to be very careful about round-off
-        n1 <- rfit$loglik + gdens - (penalty1 + ilik + tdens)
-        n2 <- fit$loglik[2] + gdens - (penalty2 + ilik + tdens)
-        temp <- max(n1, n2)  #scale so the largest value is about 1
-        errhat <- (exp(n1-temp) - exp(n2-temp)) * exp(temp)
-        #errhat <- (exp(rfit$loglik -(penalty1 + ilik)) - 
-        #        exp(fit$loglik[2]- (penalty2 + ilik))) * exp(gdens-tdens)
-        mtemp <- mean(errhat)             #estimated integral
-        stemp <- sqrt(var(errhat)/refine.n)   #std of the estimate
-        r.correct <- c(correction= log(1+ mtemp), std=stemp/(1 +mtemp)) #log scale
-        #ilik <- ilik + r.correct[1]
+            # Add it up, we have to be very careful about round-off
+            n1 <- rfit$loglik + gdens - (penalty1 + ilik + tdens)
+            n2 <- fit$loglik[2] + gdens - (penalty2 + ilik + tdens)
+            temp <- max(n1, n2)  #scale so the largest value is about 1
+            errhat <- (exp(n1-temp) - exp(n2-temp)) * exp(temp)
+            #errhat <- (exp(rfit$loglik -(penalty1 + ilik)) - 
+            #        exp(fit$loglik[2]- (penalty2 + ilik))) * exp(gdens-tdens)
+      
+            mtemp <- mean(errhat)             #estimated integral
+            stemp <- sqrt(var(errhat)/refine.n)   #std of the estimate
+            r.correct <- c(correction= log(1+ mtemp), std=stemp/(1 +mtemp)) 
+        }
     }
     .C("coxfit6e", as.integer(ncol(y)))  #release memory
     idf <- nvar + sum(ntheta)
@@ -375,10 +394,15 @@
         #The next line can be turned on for detailed tests in refine.R
         #  The feature is not documented in the manual pages, only
         #  here.
-        if (control$refine.detail)
-            out$refine.detail <-list(loglik=rfit$loglik, bmat=bmat2, tdens=tdens,
-                                    penalty1=penalty1, penalty2=penalty2,
-                                    gdens=gdens, errhat=errhat, gkmat=gkmat)
+        if (control$refine.detail) {
+            if (control$refine.method== "control")
+                out$refine.detail <-list(loglik=rfit$loglik, bmat=bmat2, 
+                                         tdens=tdens,
+                                         penalty1=penalty1, penalty2=penalty2,
+                                         gdens=gdens, errhat=errhat, gkmat=gkmat)
+            else out$refine.detail <- list(loglik=rfit$loglik, bmat=bmat2,
+                                           errhat=errhat, gkmat=gkmat)
         }
-    out
     }
+    out
+}

@@ -38,18 +38,21 @@ This document is my first foray into said domain.
 Time will tell if it is successful in creating both more reliable and
 better understood code.
 
-First, note that almost all of the code uses a \emph{.Rnw} suffix.
+Note that almost all of the code uses a \emph{.Rnw} suffix, taking
+advantage of the very capable emacs modes that are part of the ESS pacakge.
 However, it is not processed by the [[Sweave]]
 package, which is designed for reports containing 
 \emph{exectuted} S code.   
-We don't want this material run through the [[Sweave]]
-command, because it replaces our carefully formatted S code
-with the far less readable results echoed by the R parser.
-Because it can't tell where R output
-will erupt, [[Sweave]] is forced to echo in this fashion. 
-Since this document is intended to both create the [[coxme]] code
-sources along with a technical docment describing them, we use the
-standard noweb interface to process them, with a Makefile to drive
+We currently can't use [[Sweave]] to manipulate our code, however,
+because it is not able to deal with unordered clauses.
+That is, for pedagogic reasons we often want to first give an overall
+outline of the code such as you find just below, and then flesh out 
+the individual parts (such as \emph{``decompose-formula''} later
+in the document.  Sweave currently fails with a ``not defined''
+error in such a case.
+We hope to eventually rectify this, but for now
+we use the
+standard noweb program to handle the files, with a Makefile to drive
 the process.
 
 \section{Main program}

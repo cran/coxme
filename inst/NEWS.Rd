@@ -1,5 +1,23 @@
 \name{NEWS}
 \title{NEWS file for the coxme package}
+\section{Changes in version 2.2-2}{
+  \itemize{
+    \item Add a genetic example to the lmekin vignette.
+    
+    \item Add dimnames to the result of vcov, per the suggestion of
+    Joshua Wiley
+
+    \item Fix an indexing error, when there were multiple random terms
+    and the first of them had only sparse intercept terms, then
+    entries for the second were incorrectly placed in the combined matrix.
+    This is a serious bug, I can only assume that people were not using
+    multiple random terms enough to have encountered it.
+
+    \item Allow for different integration methods in the refine.n code.
+    This is a research question, and the option may disappear once I
+    answer it.
+}}
+
 \section{Changes in version 2.2-1}{
   \itemize{
     \item Further refinement to the laplace and coxme vignettes.

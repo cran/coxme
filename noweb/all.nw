@@ -38,18 +38,21 @@ This document is my first foray into said domain.
 Time will tell if it is successful in creating both more reliable and
 better understood code.
 
-First, note that almost all of the code uses a \emph{.Rnw} suffix.
+Note that almost all of the code uses a \emph{.Rnw} suffix, taking
+advantage of the very capable emacs modes that are part of the ESS pacakge.
 However, it is not processed by the [[Sweave]]
 package, which is designed for reports containing 
 \emph{exectuted} S code.   
-We don't want this material run through the [[Sweave]]
-command, because it replaces our carefully formatted S code
-with the far less readable results echoed by the R parser.
-Because it can't tell where R output
-will erupt, [[Sweave]] is forced to echo in this fashion. 
-Since this document is intended to both create the [[coxme]] code
-sources along with a technical docment describing them, we use the
-standard noweb interface to process them, with a Makefile to drive
+We currently can't use [[Sweave]] to manipulate our code, however,
+because it is not able to deal with unordered clauses.
+That is, for pedagogic reasons we often want to first give an overall
+outline of the code such as you find just below, and then flesh out 
+the individual parts (such as \emph{``decompose-formula''} later
+in the document.  Sweave currently fails with a ``not defined''
+error in such a case.
+We hope to eventually rectify this, but for now
+we use the
+standard noweb program to handle the files, with a Makefile to drive
 the process.
 
 \section{Main program}
@@ -399,7 +402,11 @@ in particular the use of the unevaluated [[bdsI]] function in a list.
 This was mostly used to generate models that can now be directly stated.
 
 The first task is to decide which element of the list goes to 
-which term.  If there is only one random term then [[varlist]] is
+which term. 
+If the list is a collection of coxmevar objects, then they are used one
+by one and any remaining random terms get the default action of
+coxmeFull.
+If there is only one random term then [[varlist]] is
 not required to be a list of one element, but we immediately make it so.
 A single list of variance matrices can be ambiguous, for instance if there
 were 2 random terms and one list with two matrices: is this a pair of matrices
@@ -409,8 +416,9 @@ resolve the ambiguity.
 nrandom <- length(flist$random)
 if (nrandom ==0) stop("No random effects terms found")
 vparm <- vector('list', nrandom)
-
-ismat <- function (x) class(x) %in% c('matrix', 'bdsmatrix')
+ismat <- function (x) {
+    inherits(x, "matrix") || inherits(x, "bdsmatrix") | inherits(x, "Matrix")
+}
 if (missing(varlist) || is.null(varlist)) {
     varlist <- vector('list', nrandom)
     for (i in 1:nrandom) varlist[[i]] <- coxmeFull() #default
@@ -432,7 +440,7 @@ else {
         else {  #the user gave me a list, not all matrices
             for (i in 1:length(varlist)) {
                 if (is.function(varlist[[i]])) 
-                    varlist[[i]] <-eval(varlist[[i]])
+                    varlist[[i]] <-varlist[[i]]()
                 if (ismat(varlist[[i]]))
                     varlist[[i]] <- coxmeMlist(list(varlist[[i]]))
                 if (class(varlist[[i]]) != 'coxmevar') {
@@ -446,11 +454,13 @@ else {
                 }
             }
         }
-    while(length(varlist) < nrandom) varlist <- c(varlist, coxmeFull())
+    while(length(varlist) < nrandom) varlist <- c(varlist, list(coxmeFull()))
     }
+
 
 if (!is.null(names(varlist))) { # put it in the right order
     vname <- names(varlist)
+    stop("Cannot (yet) have a names varlist")
     indx <- pmatch(vname, names(random), nomatch=0)
     if (any(indx==0 & vname!=''))
         stop(paste("Varlist element not matched:", vname[indx==0 & vname!='']))
@@ -500,7 +510,7 @@ The [[ncoef]] matrix has a row for each term, containing the number
 of intercepts and slopes for that term.  
 The definition of 4 helper functions is deferred until later.
 
-<<build-control-structures>>=    
+<<build-control-structures>>= 
 <<get-cmat>>
 <<get-groups>>
 <<make-vinit>>
@@ -608,9 +618,10 @@ else {
                    
     tname <- names(vinit)
     if (!is.null(tname)) {
-        temp <- pmatch(tname, names(flist$random), nomatch=0)
-        temp <- c(temp, (1:nrandom)[-temp])
-        vinit <- vinit[temp]
+        stop("Named initial values not yet supported")
+        #temp <- pmatch(tname, names(flist$random), nomatch=0)
+        #temp <- c(temp, (1:nrandom)[-temp])
+        #vinit <- vinit[temp]
         }
   }
 
@@ -2480,12 +2491,13 @@ values for $\beta$ and $b$
 
 The overall outline of the routine is
 <<coxme.fit>>=
-    <<coxme-setup>>
+<<coxme-setup>>
     <<null-fit>>
     <<define-penalty>>
     <<coxfit6a-call>>
     <<coxme-fit>>
     <<coxme-finish>>
+}
 @ 
 
 \subsection{Penalty matrix}
@@ -2595,54 +2607,57 @@ blocks down the diagonal, but S has no [[dbind]] function.
     nrow.R <- sum(ncoef)
     ncol.R <- nrow.R - nsparse
     R <- matrix(0., nrow.R, ncol.R)
-    indx1 <- 0               #current offset  wrt filling in intercepts
-    indx2 <- sum(ncoef[,1])  #current offset  wrt filling in slopes
+    indx1 <- 0                  #current column offset wrt intercepts
+    indx2 <- sum(ncoef[,1]) -nsparse #current col offset wrt filling in slopes
     
     if (ncol(tmat) > nsparse) { #first matrix has an rmat component
-        k <- (nsparse+1):ncol(tmat)
-        temp <- as.matrix(tmat[k,k])
-
         if (ncoef[1,1] > nsparse) { #intercept contribution to rmat
-            j <- ncoef[1,1] - nsparse   #number of intercept columns
-            R[1:nrow(temp), 1:j] <- temp[,1:j]
-            indx1 <- indx1 +j
-
-            if (ncoef[1,2] >0) { #copy correlation with intercept
+            irow <- 1:ncoef[1,1]  #rows for intercepts
+            j <- ncoef[1,1] - nsparse   #number of dense intercept columns
+            R[irow, 1:j] <- tmat@rmat[irow,1:j]
+            indx1 <- j  #number of intercept processed so far
+            
+            if (ncoef[1,2] >0) {
+                # T[1-62, 3-66] of the example above
                 k <- 1:ncoef[1,2]
-                R[1:ncoef[1,1], indx2+k-nsparse] <- temp[1:ncoef[1,1], j+k]
-                }
+                R[irow, k+indx2-nsparse] <- tmat@rmat[irow, k+j]
+            }
             }
         else j <- 0
         
         if (ncoef[1,2] >0) { #has a slope contribution to rmat
+            # T[63-128, 3-66] of the example above
             k <- 1:ncoef[1,2]
-            R[indx2+k, indx2+k -nsparse] <- temp[ncoef[1,1]+k, j+k]
-            indx2 <- indx2 + ncoef[1,2]
+            R[k+indx2 +nsparse, k+ indx2] <- tmat@rmat[k+indx1, j+k]
+            indx2 <- indx2 + ncoef[1,2] #non intercetps so far
             }
         }
-    
-    for (i in 2:nrandom) {
+ 
+for (i in 2:nrandom) {
         temp <- as.matrix(varlist[[i]]$generate(theta[sindex==i], vparm[[i]]))
         if (any(dim(temp) != rep(ncoef[i,1]+ncoef[i,2], 2)))
             stop(paste("Invalid dimension for generated penalty matrix, term",
                        i))
         
         if (ncoef[i,1] >0)  { # intercept contribution
+            #U or V [1-8, 1-8] in the example above
             j <- ncoef[i,1]
-            R[indx1 +1:j, indx1 +1:j-nsparse] <- temp[1:j,1:j]
-            indx1 <- indx1 + j
+            R[indx1 +1:j + nsparse, indx1 +1:j] <- temp[1:j,1:j]
             
             if (ncoef[i,2] >0) {
+                # V[1-8, 9-24] in the example
                 k <- 1:ncoef[i,2]
-                R[indx1+1:j, indx2 +k -nsparse] <- temp[1:j, k+ j]
-                R[indx2+k, indx2 +k -nsparse] <- temp[k+j, k+j]
+                R[indx1+ 1:j + nsparse, indx2 +k] <- temp[1:j, k+ j]
+                # V[9-24, 9-24]
+                R[indx2+k +nsparse, indx2 +k] <- temp[k+j, k+j]
                 }
             }
         else if (ncoef[i,2]>0) {
             k <- 1:ncoef[i,2]
-            R[indx2+k, indx2+k -nsparse] <- temp
+            R[indx2+k +nsparse, indx2+k] <- temp
             }
-        indx2 <- indx2 +ncoef[i,2]
+        indx1 <- indx1 + ncoef[i,1]
+        indx2 <- indx2 + ncoef[i,2]
         }
     bdsmatrix(blocksize=tmat@blocksize, blocks=tmat@blocks, rmat=R)
     }    
@@ -2840,40 +2855,56 @@ if (refine.n > 0) {
     rdf <- control$refine.df
     nfrail <- ncol(gkmat)
     hmatb <- hmat[1:nfrail, 1:nfrail]
-    #create the random t-variate with variance H-inverse
-    bmat <- matrix(rnorm(nfrail*refine.n), ncol=refine.n)
-    bmat <- backsolve(hmatb, bmat, upper=TRUE) /
-        rep(sqrt(rchisq(refine.n, df=rdf)/rdf), each=nfrail)
-    bmat2 <- bmat + fit$beta[1:nfrail]  #recenter
-
+    if (control$refine.method == "control") {
+        #create the random t-variate with variance H-inverse
+        bmat <- matrix(rnorm(nfrail*refine.n), ncol=refine.n)
+        bmat <- backsolve(hmatb, bmat, upper=TRUE) /
+            rep(sqrt(rchisq(refine.n, df=rdf)/rdf), each=nfrail)
+        bmat2 <- bmat + fit$beta[1:nfrail]  #recenter
+    }
+    else if (control$refine.method == "direct") {
+        bmat <- matrix(rnorm(nfrail*refine.n), ncol=refine.n)
+        bmat2 <- gkmat %*% bmat
+    }
+    else stop("Unrecognized value for refine.method")
+    
     rfit <- .C(rfile,
                as.integer(refine.n),
                as.double(fit$beta),
                as.double(bmat2),
                loglik = double(refine.n), dup=FALSE)
 
-    # Penalty terms
-    penalty1 <- colSums(bmat2*(ikmat %*% bmat2))/2
-    penalty2 <- rowSums((t(bmat) %*% hmatb)^2 )/2
+    if (control$refine.method == "direct") {
+        temp <- max(rfit$loglik)   #keep exp() in range
+        errhat <- exp(rfit$loglik - temp) 
+        mtemp <- mean(errhat)             #estimated integral
+        stemp <- sqrt(var(errhat)/refine.n)   #std of the estimate
+        r.correct <- c(correction = log(mtemp) + temp -ilik, std= stemp/mtemp)
+    }
+    else {
+        # Penalty terms
+        penalty1 <- colSums(bmat2*(ikmat %*% bmat2))/2
+        penalty2 <- rowSums((t(bmat) %*% hmatb)^2 )/2
 
-    # Constant for the Gaussian density,  and density of the t-dist (logs)
-    gdens <- -0.5* (sum(log(diag(gkmat))) + nfrail*log(2* pi))
-    logdet <- -sum(log(diag(hmatb)))
-    tdens <- lgamma((nfrail + rdf)/2) - 
+        # Constant for the Gaussian density,  and density of the t-dist (logs)
+        gdens <- -0.5* (sum(log(diag(gkmat))) + nfrail*log(2* pi))
+        logdet <- -sum(log(diag(hmatb)))
+        tdens <- lgamma((nfrail + rdf)/2) - 
             (lgamma(rdf/2) + 0.5*(logdet + nfrail* log(pi*rdf) + 
-             (nfrail+ rdf)* log(1 + 2*penalty2/rdf)))
+                                  (nfrail+ rdf)* log(1 + 2*penalty2/rdf)))
     
-    # Add it up, we have to be very careful about round-off
-    n1 <- rfit$loglik + gdens - (penalty1 + ilik + tdens)
-    n2 <- fit$loglik[2] + gdens - (penalty2 + ilik + tdens)
-    temp <- max(n1, n2)  #scale so the largest value is about 1
-    errhat <- (exp(n1-temp) - exp(n2-temp)) * exp(temp)
-    #errhat <- (exp(rfit$loglik -(penalty1 + ilik)) - 
-    #        exp(fit$loglik[2]- (penalty2 + ilik))) * exp(gdens-tdens)
-    mtemp <- mean(errhat)             #estimated integral
-    stemp <- sqrt(var(errhat)/refine.n)   #std of the estimate
-    r.correct <- c(correction= log(1+ mtemp), std=stemp/(1 +mtemp)) #log scale
-    #ilik <- ilik + r.correct[1]
+        # Add it up, we have to be very careful about round-off
+        n1 <- rfit$loglik + gdens - (penalty1 + ilik + tdens)
+        n2 <- fit$loglik[2] + gdens - (penalty2 + ilik + tdens)
+        temp <- max(n1, n2)  #scale so the largest value is about 1
+        errhat <- (exp(n1-temp) - exp(n2-temp)) * exp(temp)
+        #errhat <- (exp(rfit$loglik -(penalty1 + ilik)) - 
+        #        exp(fit$loglik[2]- (penalty2 + ilik))) * exp(gdens-tdens)
+  
+        mtemp <- mean(errhat)             #estimated integral
+        stemp <- sqrt(var(errhat)/refine.n)   #std of the estimate
+        r.correct <- c(correction= log(1+ mtemp), std=stemp/(1 +mtemp)) 
+    }
 }
 @ 
 
@@ -3237,13 +3268,17 @@ if (refine.n>0) {
     #The next line can be turned on for detailed tests in refine.R
     #  The feature is not documented in the manual pages, only
     #  here.
-    if (control$refine.detail)
-        out$refine.detail <-list(loglik=rfit$loglik, bmat=bmat2, tdens=tdens,
-                                penalty1=penalty1, penalty2=penalty2,
-                                gdens=gdens, errhat=errhat, gkmat=gkmat)
+    if (control$refine.detail) {
+        if (control$refine.method== "control")
+            out$refine.detail <-list(loglik=rfit$loglik, bmat=bmat2, 
+                                     tdens=tdens,
+                                     penalty1=penalty1, penalty2=penalty2,
+                                     gdens=gdens, errhat=errhat, gkmat=gkmat)
+        else out$refine.detail <- list(loglik=rfit$loglik, bmat=bmat2,
+                                       errhat=errhat, gkmat=gkmat)
     }
-out
 }
+out
 @ 
 \section{Methods for the random effects}
 Creating methods for the random effects turned out to be tricky.
@@ -3466,8 +3501,8 @@ and 2.21)
 \begin{align}
   \hat\beta(\theta) &= R_{22}^{-1} c_2  \label{bhat}\\
   \hat\sigma^2(\theta) &= ||c_3||^2/n  \label{sighat}\\
-  \log(L(\theta)) &= \frac{n}{2}\left[\log n - \log(2\pi) -1\right] -
-    n\log |c_2| + \log\left({\rm abs}\frac{|\Delta|}{|R_{11} \right) 
+  \log(L(\theta)) &= \frac{n}{2}\left[ \log n - \log(2\pi) -1 \right] -
+    n\log |c_2| + \log\left( {\rm abs} \frac{|\Delta|}{|R_{11}} \right) 
      \label{loghat}
 \end{align}
 Here $|c|$ is the norm of a vector $c$  and $|A|$ the determinant of a matrix
@@ -3480,7 +3515,7 @@ decompostions, but with
 \begin{align}
   \hat\sigma^2_{REML}(\theta) &= ||c_3||^2/(n-p)  \label{sighatREML}\\
   \log(L(\theta))_{REML} &= \frac{n}{2}\left[\log n - \log(2\pi) -1\right] -
-    (n-p)\log |c_2| + \log\left({\rm abs}\frac{|\Delta|}{|R|} \right) 
+    (n-p)\log |c_2| + \log \left( {\rm abs} \frac{|\Delta|}{|R|} \right) 
      \label{loghatREML}
 \end{align}
 
@@ -3492,7 +3527,7 @@ decompostions, but with
 @ 
 
 The define-penalty code is shared with coxme, it defines the
-function [[kfun]] which returns $\Delta$ given the parameters $\theta$.
+function [[kfun]] which returns $K/\sigma^2$ given the parameters $\theta$.
 The next bit of code defines $X^*$ and the top portion of $Z^*$
 as sparse Matrix objects.
 The definition $X^*$ is easy as we already have it in hand.  
@@ -3668,8 +3703,8 @@ At this point the optimal $\theta$ has been found.
 Now do one more pass with the ``internals'' of the logfun
 function, and compute other quantities that we didn't need    
 for the intermediate iterations.
-Remember that for the genetic problems lmekin was
-designed for $Z$ will be very large and sparse while $X$ will
+Remember that lmekin was designed for genetic problems,
+and for these $Z$ will be very large and sparse while $X$ will
 be modest. 
 We don't want to use the backsolve function on $Z$, since at the
 moment there is no sparse method.  Matrix multiplication,

@@ -140,7 +140,11 @@ in particular the use of the unevaluated [[bdsI]] function in a list.
 This was mostly used to generate models that can now be directly stated.
 
 The first task is to decide which element of the list goes to 
-which term.  If there is only one random term then [[varlist]] is
+which term. 
+If the list is a collection of coxmevar objects, then they are used one
+by one and any remaining random terms get the default action of
+coxmeFull.
+If there is only one random term then [[varlist]] is
 not required to be a list of one element, but we immediately make it so.
 A single list of variance matrices can be ambiguous, for instance if there
 were 2 random terms and one list with two matrices: is this a pair of matrices
@@ -150,8 +154,9 @@ resolve the ambiguity.
 nrandom <- length(flist$random)
 if (nrandom ==0) stop("No random effects terms found")
 vparm <- vector('list', nrandom)
-
-ismat <- function (x) class(x) %in% c('matrix', 'bdsmatrix')
+ismat <- function (x) {
+    inherits(x, "matrix") || inherits(x, "bdsmatrix") | inherits(x, "Matrix")
+}
 if (missing(varlist) || is.null(varlist)) {
     varlist <- vector('list', nrandom)
     for (i in 1:nrandom) varlist[[i]] <- coxmeFull() #default
@@ -173,7 +178,7 @@ else {
         else {  #the user gave me a list, not all matrices
             for (i in 1:length(varlist)) {
                 if (is.function(varlist[[i]])) 
-                    varlist[[i]] <-eval(varlist[[i]])
+                    varlist[[i]] <-varlist[[i]]()
                 if (ismat(varlist[[i]]))
                     varlist[[i]] <- coxmeMlist(list(varlist[[i]]))
                 if (class(varlist[[i]]) != 'coxmevar') {
@@ -187,11 +192,13 @@ else {
                 }
             }
         }
-    while(length(varlist) < nrandom) varlist <- c(varlist, coxmeFull())
+    while(length(varlist) < nrandom) varlist <- c(varlist, list(coxmeFull()))
     }
+
 
 if (!is.null(names(varlist))) { # put it in the right order
     vname <- names(varlist)
+    stop("Cannot (yet) have a names varlist")
     indx <- pmatch(vname, names(random), nomatch=0)
     if (any(indx==0 & vname!=''))
         stop(paste("Varlist element not matched:", vname[indx==0 & vname!='']))
@@ -241,7 +248,7 @@ The [[ncoef]] matrix has a row for each term, containing the number
 of intercepts and slopes for that term.  
 The definition of 4 helper functions is deferred until later.
 
-<<build-control-structures>>=    
+<<build-control-structures>>= 
 <<get-cmat>>
 <<get-groups>>
 <<make-vinit>>
@@ -349,9 +356,10 @@ else {
                    
     tname <- names(vinit)
     if (!is.null(tname)) {
-        temp <- pmatch(tname, names(flist$random), nomatch=0)
-        temp <- c(temp, (1:nrandom)[-temp])
-        vinit <- vinit[temp]
+        stop("Named initial values not yet supported")
+        #temp <- pmatch(tname, names(flist$random), nomatch=0)
+        #temp <- c(temp, (1:nrandom)[-temp])
+        #vinit <- vinit[temp]
         }
   }
 

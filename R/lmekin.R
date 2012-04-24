@@ -71,8 +71,9 @@ lmekin <- function(formula,  data,
     nrandom <- length(flist$random)
     if (nrandom ==0) stop("No random effects terms found")
     vparm <- vector('list', nrandom)
-
-    ismat <- function (x) class(x) %in% c('matrix', 'bdsmatrix')
+    ismat <- function (x) {
+        inherits(x, "matrix") || inherits(x, "bdsmatrix") | inherits(x, "Matrix")
+    }
     if (missing(varlist) || is.null(varlist)) {
         varlist <- vector('list', nrandom)
         for (i in 1:nrandom) varlist[[i]] <- coxmeFull() #default
@@ -94,7 +95,7 @@ lmekin <- function(formula,  data,
             else {  #the user gave me a list, not all matrices
                 for (i in 1:length(varlist)) {
                     if (is.function(varlist[[i]])) 
-                        varlist[[i]] <-eval(varlist[[i]])
+                        varlist[[i]] <-varlist[[i]]()
                     if (ismat(varlist[[i]]))
                         varlist[[i]] <- coxmeMlist(list(varlist[[i]]))
                     if (class(varlist[[i]]) != 'coxmevar') {
@@ -108,11 +109,13 @@ lmekin <- function(formula,  data,
                     }
                 }
             }
-        while(length(varlist) < nrandom) varlist <- c(varlist, coxmeFull())
+        while(length(varlist) < nrandom) varlist <- c(varlist, list(coxmeFull()))
         }
+
 
     if (!is.null(names(varlist))) { # put it in the right order
         vname <- names(varlist)
+        stop("Cannot (yet) have a names varlist")
         indx <- pmatch(vname, names(random), nomatch=0)
         if (any(indx==0 & vname!=''))
             stop(paste("Varlist element not matched:", vname[indx==0 & vname!='']))
@@ -179,9 +182,10 @@ lmekin <- function(formula,  data,
                        
         tname <- names(vinit)
         if (!is.null(tname)) {
-            temp <- pmatch(tname, names(flist$random), nomatch=0)
-            temp <- c(temp, (1:nrandom)[-temp])
-            vinit <- vinit[temp]
+            stop("Named initial values not yet supported")
+            #temp <- pmatch(tname, names(flist$random), nomatch=0)
+            #temp <- c(temp, (1:nrandom)[-temp])
+            #vinit <- vinit[temp]
             }
       }
 
@@ -287,54 +291,57 @@ lmekin <- function(formula,  data,
         nrow.R <- sum(ncoef)
         ncol.R <- nrow.R - nsparse
         R <- matrix(0., nrow.R, ncol.R)
-        indx1 <- 0               #current offset  wrt filling in intercepts
-        indx2 <- sum(ncoef[,1])  #current offset  wrt filling in slopes
+        indx1 <- 0                  #current column offset wrt intercepts
+        indx2 <- sum(ncoef[,1]) -nsparse #current col offset wrt filling in slopes
         
         if (ncol(tmat) > nsparse) { #first matrix has an rmat component
-            k <- (nsparse+1):ncol(tmat)
-            temp <- as.matrix(tmat[k,k])
-
             if (ncoef[1,1] > nsparse) { #intercept contribution to rmat
-                j <- ncoef[1,1] - nsparse   #number of intercept columns
-                R[1:nrow(temp), 1:j] <- temp[,1:j]
-                indx1 <- indx1 +j
-
-                if (ncoef[1,2] >0) { #copy correlation with intercept
+                irow <- 1:ncoef[1,1]  #rows for intercepts
+                j <- ncoef[1,1] - nsparse   #number of dense intercept columns
+                R[irow, 1:j] <- tmat@rmat[irow,1:j]
+                indx1 <- j  #number of intercept processed so far
+                
+                if (ncoef[1,2] >0) {
+                    # T[1-62, 3-66] of the example above
                     k <- 1:ncoef[1,2]
-                    R[1:ncoef[1,1], indx2+k-nsparse] <- temp[1:ncoef[1,1], j+k]
-                    }
+                    R[irow, k+indx2-nsparse] <- tmat@rmat[irow, k+j]
+                }
                 }
             else j <- 0
             
             if (ncoef[1,2] >0) { #has a slope contribution to rmat
+                # T[63-128, 3-66] of the example above
                 k <- 1:ncoef[1,2]
-                R[indx2+k, indx2+k -nsparse] <- temp[ncoef[1,1]+k, j+k]
-                indx2 <- indx2 + ncoef[1,2]
+                R[k+indx2 +nsparse, k+ indx2] <- tmat@rmat[k+indx1, j+k]
+                indx2 <- indx2 + ncoef[1,2] #non intercetps so far
                 }
             }
-        
-        for (i in 2:nrandom) {
+     
+    for (i in 2:nrandom) {
             temp <- as.matrix(varlist[[i]]$generate(theta[sindex==i], vparm[[i]]))
             if (any(dim(temp) != rep(ncoef[i,1]+ncoef[i,2], 2)))
                 stop(paste("Invalid dimension for generated penalty matrix, term",
                            i))
             
             if (ncoef[i,1] >0)  { # intercept contribution
+                #U or V [1-8, 1-8] in the example above
                 j <- ncoef[i,1]
-                R[indx1 +1:j, indx1 +1:j-nsparse] <- temp[1:j,1:j]
-                indx1 <- indx1 + j
+                R[indx1 +1:j + nsparse, indx1 +1:j] <- temp[1:j,1:j]
                 
                 if (ncoef[i,2] >0) {
+                    # V[1-8, 9-24] in the example
                     k <- 1:ncoef[i,2]
-                    R[indx1+1:j, indx2 +k -nsparse] <- temp[1:j, k+ j]
-                    R[indx2+k, indx2 +k -nsparse] <- temp[k+j, k+j]
+                    R[indx1+ 1:j + nsparse, indx2 +k] <- temp[1:j, k+ j]
+                    # V[9-24, 9-24]
+                    R[indx2+k +nsparse, indx2 +k] <- temp[k+j, k+j]
                     }
                 }
             else if (ncoef[i,2]>0) {
                 k <- 1:ncoef[i,2]
-                R[indx2+k, indx2+k -nsparse] <- temp
+                R[indx2+k +nsparse, indx2+k] <- temp
                 }
-            indx2 <- indx2 +ncoef[i,2]
+            indx1 <- indx1 + ncoef[i,1]
+            indx2 <- indx2 + ncoef[i,2]
             }
         bdsmatrix(blocksize=tmat@blocksize, blocks=tmat@blocks, rmat=R)
         }    

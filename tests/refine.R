@@ -31,7 +31,8 @@ simdata$status <- temp$status
 # Test out the refine.n code, using the simdata
 #  A simple diagonal variance
 #
-nsim <- 100
+# For original testing we had nsim=100, changed to 10 for a CRAN speedup
+nsim <- 10
 var  <- .3   #sizeable
 
 set.seed(20)

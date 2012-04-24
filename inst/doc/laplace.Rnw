@@ -297,7 +297,7 @@ IPL for the fitted coxme model to the PL from a fixed effects coxph
 model with treatment alone.  This suggests that any error in the
 IPL that is less than 0.1 will be of little import.
 
-\section{Further examles}
+\section{Further examples}
 \subsection{EORTC}
 As a larger example consider the eortc data set.  This is 
 a simulated data set, but based on a large breast cancer clinical
@@ -404,7 +404,7 @@ The Laplace approximation to the IPL is off by 1-2\% of the
 difference between the null and fitted model. 
 In this particular case it is not a severe issue, the test
 statistic for significance is $>9$ on 1 df, and even if it were not
-``singnificant''
+``significant''
 a correction for within-subject correlation is called for.
 Figure \ref{fig:cgd} shows the two terms of equation \eqref{control2},
 plotted on a square root scale to spread the data out.
@@ -497,7 +497,7 @@ The variance of the random effects is very large at 7.6.
 Subjects have estimated random effects of $\exp(-6.1)= .002$ (nearly
 immortal) to $\exp(8.8) > 6600$ (dies before getting out
 of the building) which are biologically implausible.
-The control based refinement was not able to reliable
+The control based refinement was not able to reliably
 estimate the bias -- for many values of the random number
 seed it actually returns NA due to computations that go
 out of range.
@@ -513,7 +513,7 @@ The story here is still being worked out and we expect to
 have a more detailed description in future versions of
 this vignette.  In broad strokes, when the correlation is
 based on a kinship matrix the Laplace appears to work
-adequately when: family sizes are large modest to large,
+adequately when: family sizes are modest to large and
 the standard deviation of the random effect is no greater
 than .8-.9.  Even though there is a random effect per subject
 in such models, the correlation structure is such that each
@@ -527,8 +527,9 @@ An example of the last is the colon cancer data set.
 However, this is a data set
 for which I have grave doubts about the applicability of a 
 a mixed effects model at all,
-a reservation that extends to any data set modeled with a random effect per
-subject but having only one observation per subject. 
+a reservation that extends to any data set where the effective degrees
+of freedom approaches the total number of events.
+
 
 For the case of generalized linear models,
 Shun and McCullaugh \cite{Shun95} suggest that the ordinary

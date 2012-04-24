@@ -29,7 +29,9 @@ trdata <- mkdata(150)  #150 enrolled per site
 #(pfit$event/sum(pfit$event))/ (pfit$pyears/sum(pfit$pyears))
 
 set.seed(50)
-nsim <- 500
+#nsim <- 500
+nsim <- 20  # speedup for CRAN
+
 fit <- coxme(Surv(futime, status) ~ trt2 + (1 + trt2 | site), trdata,
              refine.n=nsim, refine.detail=TRUE)
 debug <- fit$refine.detail

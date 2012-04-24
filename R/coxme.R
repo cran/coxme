@@ -87,8 +87,9 @@ coxme <- function(formula,  data,
     nrandom <- length(flist$random)
     if (nrandom ==0) stop("No random effects terms found")
     vparm <- vector('list', nrandom)
-
-    ismat <- function (x) class(x) %in% c('matrix', 'bdsmatrix')
+    ismat <- function (x) {
+        inherits(x, "matrix") || inherits(x, "bdsmatrix") | inherits(x, "Matrix")
+    }
     if (missing(varlist) || is.null(varlist)) {
         varlist <- vector('list', nrandom)
         for (i in 1:nrandom) varlist[[i]] <- coxmeFull() #default
@@ -110,7 +111,7 @@ coxme <- function(formula,  data,
             else {  #the user gave me a list, not all matrices
                 for (i in 1:length(varlist)) {
                     if (is.function(varlist[[i]])) 
-                        varlist[[i]] <-eval(varlist[[i]])
+                        varlist[[i]] <-varlist[[i]]()
                     if (ismat(varlist[[i]]))
                         varlist[[i]] <- coxmeMlist(list(varlist[[i]]))
                     if (class(varlist[[i]]) != 'coxmevar') {
@@ -124,11 +125,13 @@ coxme <- function(formula,  data,
                     }
                 }
             }
-        while(length(varlist) < nrandom) varlist <- c(varlist, coxmeFull())
+        while(length(varlist) < nrandom) varlist <- c(varlist, list(coxmeFull()))
         }
+
 
     if (!is.null(names(varlist))) { # put it in the right order
         vname <- names(varlist)
+        stop("Cannot (yet) have a names varlist")
         indx <- pmatch(vname, names(random), nomatch=0)
         if (any(indx==0 & vname!=''))
             stop(paste("Varlist element not matched:", vname[indx==0 & vname!='']))
@@ -195,9 +198,10 @@ coxme <- function(formula,  data,
                        
         tname <- names(vinit)
         if (!is.null(tname)) {
-            temp <- pmatch(tname, names(flist$random), nomatch=0)
-            temp <- c(temp, (1:nrandom)[-temp])
-            vinit <- vinit[temp]
+            stop("Named initial values not yet supported")
+            #temp <- pmatch(tname, names(flist$random), nomatch=0)
+            #temp <- c(temp, (1:nrandom)[-temp])
+            #vinit <- vinit[temp]
             }
       }
 

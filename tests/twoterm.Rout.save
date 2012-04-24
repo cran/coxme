@@ -1,8 +1,8 @@
 
-R version 2.14.0 (2011-10-31)
-Copyright (C) 2011 The R Foundation for Statistical Computing
+R version 2.15.0 (2012-03-30)
+Copyright (C) 2012 The R Foundation for Statistical Computing
 ISBN 3-900051-07-0
-Platform: x86_64-unknown-linux-gnu (64-bit)
+Platform: i686-pc-linux-gnu (32-bit)
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
 You are welcome to redistribute it under certain conditions.
@@ -30,15 +30,6 @@ The following object(s) are masked from 'package:base':
 Loading required package: nlme
 Loading required package: Matrix
 Loading required package: lattice
-
-Attaching package: 'Matrix'
-
-The following object(s) are masked from 'package:base':
-
-    det
-
-Warning message:
-replacing previous import 'diag' when loading 'Matrix' 
 > aeq <- function(x,y) all.equal(as.vector(x), as.vector(y))
 > #
 > # Ensure that a call with two terms and a call with one term but zero
@@ -115,7 +106,7 @@ replacing previous import 'diag' when loading 'Matrix'
 > fit1b <- coxme(Surv(dummy, futime, status) ~ trt1 + (1 | site) + (trt1|site), 
 +                smdata, ties=approx)
 > all.equal(ranef(fit1b), ranef(fit1))
-[1] TRUE
+[1] "Component 2: Mean relative difference: 2.069803e-08"
 > aeq(fit1$loglik, fit1b$loglik)
 [1] TRUE
 > 
@@ -126,3 +117,6 @@ replacing previous import 'diag' when loading 'Matrix'
 > all.equal(coef(fit2b), coef(fit2))
 [1] TRUE
 > 
+> proc.time()
+   user  system elapsed 
+  2.496   0.052   2.546 

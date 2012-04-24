@@ -124,6 +124,80 @@ coxme it also follows that convention.
 (In Cox models there is not an intercept term for the fixed effects
 since this is absorbed into the baseline hazard).
 
+\section{GAW example}
+\begin{figure}
+  \resizebox{\textwidth}{!}{\includegraphics{lmekin-gaw.pdf}}
+  \caption{Pedigree 9 from the GAW data.}
+  \label{gawfig}
+\end{figure}
+ The following examples use data from one of the Genetic Analaysis Workshops
+(I don't remeber which year).
+First read in the saved data, create the pedigrees, and create the kinship
+matrix.
+Figure \ref{gawfig} shows a plot of the smallest of the 23 families in the
+file.
+<<gaw, fig=TRUE, include=FALSE>>=
+require(kinship2)
+
+load("gaw.rda")
+gped <- with(gdata, pedigree(id, father, mother, sex=sex, famid=famid))
+kmat <- kinship(gped)
+plot(gped[9])
+
+gfit1 <- lmekin(age ~ q1 + (1|id), data=gdata, varlist=kmat)
+gfit1
+@ 
+
+The fit predicts age at onset using one quantitative trait along with a
+familial affect.
+The familial effect has a standard deviation approximately equal to the
+residual error.
+
+A next step is to look at the effect of a particular locus.  
+The saved rda file also contains the results of a single SOLAR run at
+locus 6.90 along with the \texttt{pedindex} file created by SOLAR.
+We need to convert these into sparse matrix form, and add appropriate labels.
+(When there are kinship or ibd matrices, the coxme routine uses the
+matrix labels to match the proper row/col to the proper subject).
+The SOLAR package may reorder subjects in the data set; the
+pedindex matrix contains the new subject and family numbers in colums
+1 and 6, and the original family and subject values in the last two columns.
+In this data set each subject has a unique identifier, so we do not need to
+include the family id in the matrix dimnames to obtain correct matches.
+<<>>=
+sid <- pedindex[,9]
+ibd6.90 <- with(solar6.90, sparseMatrix(id2, id1, x=x, symmetric=TRUE,
+                                        dimnames=list(sid, sid)))
+
+gfit2 <- lmekin(age ~ (1|id), data=gdata, 
+                varlist= list(kmat, ibd6.90))
+print(gfit2)
+@ 
+
+The specific effect appears to be small for this locus.
+Another possible fit is to assume a common environmental effect for 
+each family.
+(For pedigrees this large I have serious doubts about the
+relevance of the model below, but it serves as an illustration).
+When there are multiple random terms the varlist argument is matched up
+to them one by one, with the default choice used for any remaining,
+so the first will be a kinship effect and the second an uncorrelated random
+intercept per family.
+<<>>=
+gfit3 <- lmekin(age ~ q1 + (1|id) + (1|famid), data=gdata,
+                varlist=kmat)
+gfit3
+@ 
+If one wanted to be specific the above model could be written as
+below, to identify the actual variance functions used for each.
+<<echo=TRUE, eval=FALSE>>=
+lmekin(age ~ q1 + (1|id) + (1|famid), data=gdata,
+       varlist=list(coxmeMlist(kmat), coxmeFull))
+@ 
+
+
+
+
 \section{Computation}
 The random effects linear model is
 \begin{align}

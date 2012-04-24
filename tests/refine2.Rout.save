@@ -1,8 +1,8 @@
 
-R version 2.14.0 (2011-10-31)
-Copyright (C) 2011 The R Foundation for Statistical Computing
+R version 2.15.0 (2012-03-30)
+Copyright (C) 2012 The R Foundation for Statistical Computing
 ISBN 3-900051-07-0
-Platform: x86_64-unknown-linux-gnu (64-bit)
+Platform: i686-pc-linux-gnu (32-bit)
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
 You are welcome to redistribute it under certain conditions.
@@ -35,15 +35,6 @@ The following object(s) are masked from 'package:base':
 Loading required package: nlme
 Loading required package: Matrix
 Loading required package: lattice
-
-Attaching package: 'Matrix'
-
-The following object(s) are masked from 'package:base':
-
-    det
-
-Warning message:
-replacing previous import 'diag' when loading 'Matrix' 
 > aeq <- function(x,y) all.equal(as.vector(x), as.vector(y))
 > 
 > set.seed(1979)
@@ -69,7 +60,9 @@ replacing previous import 'diag' when loading 'Matrix'
 > #(pfit$event/sum(pfit$event))/ (pfit$pyears/sum(pfit$pyears))
 > 
 > set.seed(50)
-> nsim <- 500
+> #nsim <- 500
+> nsim <- 20  # speedup for CRAN
+> 
 > fit <- coxme(Surv(futime, status) ~ trt2 + (1 + trt2 | site), trdata,
 +              refine.n=nsim, refine.detail=TRUE)
 > debug <- fit$refine.detail
@@ -117,7 +110,7 @@ replacing previous import 'diag' when loading 'Matrix'
 > constant <- .5*(log(2*pi) + sum(log(diag(gchol(sigma)))))
 > fit$log[2] + c(IPL=0, sim=log(mean(exp(coxll-fit$log[2]))) - constant)
       IPL       sim 
--2715.550 -2689.735 
+-2715.550 -2689.821 
 > 
 > # Compute the Taylor series for the IPL
 > bhat <- unlist(ranef(fit))
@@ -160,3 +153,6 @@ Loading required package: mvtnorm
 +     }
 [1] TRUE
 > 
+> proc.time()
+   user  system elapsed 
+  2.704   0.048   2.750 
