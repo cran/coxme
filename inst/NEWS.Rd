@@ -1,5 +1,25 @@
 \name{NEWS}
 \title{NEWS file for the coxme package}
+\section{Changes in version 2.2-3}{
+  \itemize{
+    \item A serious bug in lmekin was pointed out by Paola Sebastiani. It occurs
+    whenever the variance matrix of the random effects is not diagonal:
+    in one location I had an upper diagonal matrix U when I needed to
+    have the lower diagonal form U'.  This affects all the genetics
+    models. A test case with non-diagonal variance has been added.  
+    Unfortunately, all of the prior test cases were designed to validate
+    agains lme and thus had diagonal penalty matrices.  Also address a 
+    slowness problem by speeding up the conversion between bdsmatrix and
+    matrix objects.
+
+    \item Change the default in coxmeMlist to rescale=FALSE.  For
+    kinship matrices, which have a diagonal of 1/2, automatic rescaling
+    was a handy feature.  For other types of matrices, e.g., a smoothing
+    spline example currently in development, it causes much confusion.
+
+    \item Add an anova method.
+}}
+
 \section{Changes in version 2.2-2}{
   \itemize{
     \item Add a genetic example to the lmekin vignette.

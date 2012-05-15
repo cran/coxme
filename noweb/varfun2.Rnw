@@ -42,12 +42,15 @@ diagonal of 1.  Kinship matrices in particular often have a diagonal of 1/2.
 \item The individual $A$ matrices are checked to verify that each is
 positive definite.  If they are not this is most often reflects an 
 error in forming them.
+With the extension of the package to more general Matrix objects this
+parameter's default has been reset to FALSE, as it can cause a large amount
+of confusion when it is applied to other cases, e.g., a smoothness penalty.
 \item The parameters $\sigma$ are constrained to be $>0$.
 \end{enumerate}
 I have had analyses where each of these had to be relaxed.
 
 <<coxmeMlist>>=
-coxmeMlist <- function(varlist, rescale=TRUE, pdcheck=TRUE,  positive=TRUE) {
+coxmeMlist <- function(varlist, rescale=FALSE, pdcheck=TRUE,  positive=TRUE) {
     # Because of environments, the init function will inherit the
     #  four variables below 
     varlist <- varlist

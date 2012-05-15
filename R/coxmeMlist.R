@@ -1,5 +1,5 @@
 # Automatically generated from all.nw using noweb
-coxmeMlist <- function(varlist, rescale=TRUE, pdcheck=TRUE,  positive=TRUE) {
+coxmeMlist <- function(varlist, rescale=FALSE, pdcheck=TRUE,  positive=TRUE) {
     # Because of environments, the init function will inherit the
     #  four variables below 
     varlist <- varlist

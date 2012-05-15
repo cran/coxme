@@ -110,7 +110,7 @@ Now for the actual compuation.
 We want to solve
 \begin{align*}
   y & = X\beta + Zb + \epsilon \\
-  b & \sim N(0, K)
+  b & \sim N(0, \sigma^2K)
 \end{align*}
 where $K$ is the variance matrix returned by [[kfun]].
 If we know $K$, one way to solve this is as an augmented
@@ -120,14 +120,20 @@ least squares problem with
   X^*=\left(\begin{array}{c} X\\0 \end{array} \right) \qquad
   Z^*=\left(\begin{array}{c} Z\\ \Delta  \end{array} \right)
 \end{equation*}
-where $\Delta' \Delta= (K/\sigma^2)^{-1}$.                       %'
+where $\Delta' \Delta= K^{-1}$.                     
 The dummy rows of data have $y=0$, $X=0$ and $\Delta$ as
 the predictor variables.
 With known $\Delta$, this gives the solution to all the other
 parameters as an ordinary least squares problem.
+If $K= U'U$ for $U$ an upper triangular matrix, then 
+$K^{-1} = L'L$ where $L= (U')^{-1}= (U^{-1})'$ is lower triangular.
+Then 
+\begin{align}
+  \Delta' \Delta &= K^{-1} \nonumber \\
+ \Delta &= L \label{eq:delta}
+\end{align}
 
-
-In our case $K/\sigma^2$ will be the iteration target of the
+In our case $K$ will be the iteration target of the
 [[optim]] function, and we need to 
 evaluate the other parameters in order to determine the log-likelihood.
 In coxme this is done inside a C routine, here we can use the
@@ -298,8 +304,17 @@ A second nuisance is that the qr.R function in the Matrix
 library insists on printing a warning message about the fact
 that permutations may exist.  For computation of a determinant,
 which is the product of the diagonal elements of R,
-any reordering is irrelevant to us.  So we create a local function
-to get past this.
+any reordering is irrelevant to us.  We use a local function
+mydiag to work around this.
+
+To create $Delta$ first do the cholesky decompostion, which returns
+the upper triangular matrix $U$ by default.
+The solve function when applied to the cholesky uses a fast backsolve
+approach. (But you can't use the backsolve function, since the Matrix
+library didn't have a method for it at this time.  I originally tried
+this to make the code clearer wrt to the algorithm.)
+Per equaton \eqref{eq:delta} we need to transpose the result to
+lower triangular form.
 
 <<lmekin-fit>>=
 mydiag <- function(x) {
@@ -309,12 +324,11 @@ mydiag <- function(x) {
 
 logfun <- function(theta, best=0) {
     vmat <- kfun(theta, varlist, vparm, ntheta, ncoef)
-    Delta <- solve(chol(as(vmat, "dsCMatrix")))
+    Delta <- t(solve(chol(as(vmat, "dsCMatrix"), pivot=FALSE)))
     zstar <- rBind(zstar1, Delta)
     qr1 <- qr(zstar)
     dd <- mydiag(qr1) 
     cvec <- as.vector(qr.qty(qr1, ystar))[-(1:nfrail)]  #residual part
-
     if (nvar >0) {  # have covariates
         qr2 <- qr(qr.qty(qr1, xstar)[-(1:nfrail),])
         cvec <- qr.qty(qr2, cvec)[-(1:nvar)]  #residual part
@@ -364,12 +378,9 @@ for the intermediate iterations.
 Remember that lmekin was designed for genetic problems,
 and for these $Z$ will be very large and sparse while $X$ will
 be modest. 
-We don't want to use the backsolve function on $Z$, since at the
-moment there is no sparse method.  Matrix multiplication,
-chol2inv, and qr.* methods have sparse analogs.
 <<lmekin-compute>>=
 vmat <-  kfun(theta, varlist, vparm, ntheta, ncoef)
-Delta <- solve(chol(as(vmat, "dsCMatrix")))
+Delta <- t(solve(chol(as(vmat, "dsCMatrix"), pivot=FALSE)))
 zstar <- rBind(zstar1, Delta)
 qr1 <- qr(zstar)
 dd <- mydiag(qr1)
@@ -476,7 +487,10 @@ else fit <- list(coefficients=list(fixed=NULL, random=random.coef),
                  n=n,
                  call=Call)
 
-if (!is.null(theta)) fit$rvar <- mfit$hessian
+if (!is.null(theta)) {
+    fit$rvar <- mfit$hessian
+    fit$iter <- mfit$counts
+}
 
 na.action <- attr(m, "na.action")
 if (length(na.action)) fit$na.action <- na.action
@@ -491,5 +505,4 @@ residuals.lmekin <- function(object, ...) {
     if (length(object$na.action)) naresid(object$.na.action, object$residuals)
     else object$residuals
 }
-<<bdsmatrix>>
 @ 

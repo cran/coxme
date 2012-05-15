@@ -7,7 +7,7 @@
   correlation structure for a coxme fit.
 }
 \usage{
-coxmeMlist(varlist, rescale = TRUE, pdcheck = TRUE, positive = TRUE)
+coxmeMlist(varlist, rescale = FALSE, pdcheck = TRUE, positive = TRUE)
 }
 \arguments{
   \item{varlist}{a list containing one or more matrix or bdsmatrix objects.}

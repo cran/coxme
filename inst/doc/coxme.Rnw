@@ -1,5 +1,6 @@
 \documentclass{article}
 \usepackage[pdftex]{graphicx}
+\usepackage{Sweave}
 \usepackage{amsmath}
 \addtolength{\textwidth}{1in}
 \addtolength{\oddsidemargin}{-.5in}

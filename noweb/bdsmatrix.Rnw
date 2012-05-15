@@ -30,6 +30,7 @@ in the first list.
 this list.)
 
 <<bdsmatrix>>=
+#Functions for moving back and forth between Matrix and bdsmatrix objects
 rowTocol <- function(bs) {  #bs = size of block
     n <- (bs*(bs+1))/2
     indx <- integer(n)
@@ -59,52 +60,118 @@ colTorow <- function(bs) {  #bs = size of block
 }
 @ 
 
-To correctly convert the whole list of blocks we
-add an offset to each, which is the cumulative total
-for the blocks preceding it.
-
-
 Now for the actual conversion, which is mostly a
 bookkeeping/counting operation. 
 The majority of the work is creating
 the indices for the second object.  In the rare case
 that the bdsmatrix object has no sparse portion we 
 can convert the rmat portion directly using the [[symmpart]]
-function.
+function.  Otherwise we use a C function, after finding that
+this conversion process was the major component of the run time for
+lmekin:
+it happens once per iteration whereas conversions the other way only occur
+a single time. 
+The key of the algorithm is to note the pattern of numbers above: the
+indices for the diagonal are 0, 2, 2+3, 2+3+4, \ldots,
+(remember that the C indices start at zero),
+and the difference between rows is 1, 2, 3, \ldots.
 <<bdsmatrix>>=
 setAs("bdsmatrix", "dsCMatrix", function(from) {
-    rownum <- function(z) unlist(lapply(1:z, function(r) 1:r))
-    nb <- from@blocksize* (from@blocksize+1)/2  #elements per block
     if (length(from@blocks)==0) symmpart(Matrix(from@rmat))
     else {
-        temp <- vector('list', length(nb))
-        bstart <- c(0, cumsum(from@blocksize)) #offset of each block
-        for (i in 1:length(nb)) 
-            temp[[i]] <- rownum(from@blocksize[i]) + bstart[i]
-        m.i <- unlist(temp)
-        m.p <- unlist(lapply(from@blocksize, function(x) seq(1,x)))
-
-        xindx <- unlist(sapply(from@blocksize, rowTocol)) +
-                 rep.int(c(0, cumsum(nb))[1:length(nb)], nb)      
-        m.x <- from@blocks[xindx]
-        if (length(from@rmat >0)) {
-            nc <- ncol(from@rmat)  #number of columns in rmat
-            nr <- nrow(from)     #total number of rows
-            ii <- seq(to=nr, length=nc)
-            m.i <- c(m.i, unlist(lapply(ii, function(r) 1:r)))
-            m.p <- c(m.p, ii)
-            m.x <- c(m.x, from@rmat[row(from@rmat) <= nr + col(from@rmat) -nc])
-            }          
-        new("dsCMatrix", 
-                 i = as.integer(m.i-1),
-                 p = as.integer(c(0, cumsum(m.p))),
-                 Dim= dim(from),
-                 Dimnames=dimnames(from),
-                 x= m.x,
+        temp <- .Call("bds_dsc",
+                      from@blocksize,
+                      from@blocks,
+                      from@rmat,
+                      from@Dim)
+         new("dsCMatrix", 
+                 i = temp$i,
+                 p = temp$p,
+                 x=  temp$x,
+                 Dim = from@Dim,
+                 Dimnames=from@Dimnames,
                  uplo='U',
                  factors=list())
     }
 })             
+@ 
+
+<<bds_dsc>>=
+#include "coxmeS.h"
+SEXP bds_dsc(SEXP blocksize2,  SEXP blocks2,  SEXP rmat2,
+	     SEXP dim2) {
+    int i,j, iblock, bstart;
+    int n, k, k2, rsize;
+    int bs, nblock, rcol;
+    
+    /* pointers to input arguments */
+    int *blocksize, dim;
+    double *blocks, *rmat;
+    
+    /* output arguments */
+    SEXP retlist, reti2, retp2, retx2;
+    int *reti, *retp;
+    double *retx;
+    static const char *outnames[] = {"i", "p", "x", ""};
+    
+    /* Get sizes */
+    blocksize = INTEGER(blocksize2);
+    blocks = REAL(blocks2);
+    rmat =  REAL(rmat2);
+    dim = (INTEGER(dim2))[0];
+    rcol = ncols(rmat2);
+    
+    nblock = LENGTH(blocksize2);  /* number of blocks */
+    n = LENGTH(blocks2);          /* total number of non-zero elements */
+    rsize = rcol*dim - (rcol*(rcol-1))/2;  /* the dense part */
+ 
+    /* create output objects */
+    PROTECT(reti2 = allocVector(INTSXP, n + rsize));
+    reti = INTEGER(reti2);
+    PROTECT(retp2 = allocVector(INTSXP, dim+1));
+    retp = INTEGER(retp2);
+    PROTECT(retx2 = allocVector(REALSXP, n + rsize));
+    retx = REAL(retx2);
+    
+    k=0;  /* total elements processed */
+    bstart =0;  /* row number for start of block */
+    *retp =0;
+    for (iblock=0; iblock<nblock; iblock++) {
+        bs = blocksize[iblock];
+	for (i=0; i<bs; i++) {   /* column in the output */
+	    retp[1] = *retp + i + 1; retp++;
+            k2 = i+k;                        
+	    for (j=0; j<=i; j++) { /* row in the output*/
+ 		*retx++ = blocks[k2];
+		*reti++ = bstart + j;
+		k2 += bs - (j+1);
+	        }
+	    }
+        bstart += bs;
+	k += bs * (bs+1)/2;
+	}
+    
+    /* Now do the rmat portion, if present 
+       But not the lower right corner of rmat
+    */
+    k = 1+ dim - rcol;
+    for (i=0; i<rcol; i++) {
+	retp[1] = *retp + k; retp++;
+	for (j=0; j<k; j++) {
+	    *retx++ = rmat[j];
+	    *reti++ = j;
+	    }
+	rmat += dim;
+	k++;
+	}
+    		
+    retlist = PROTECT(mkNamed(VECSXP, outnames));
+    SET_VECTOR_ELT(retlist, 0, reti2);
+    SET_VECTOR_ELT(retlist, 1, retp2);
+    SET_VECTOR_ELT(retlist, 2, retx2);
+    UNPROTECT(4);
+    return(retlist);
+    }
 @ 
 
 Conversion of the result of a cholesky decompostion leads to the
