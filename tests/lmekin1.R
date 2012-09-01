@@ -1,4 +1,5 @@
 library(coxme)
+require(nlme)
 aeq <- function(x, y, ...) all.equal(as.vector(x), as.vector(y), ...)
 tdata <- eortc
 tdata$center2 <- factor(tdata$center)
@@ -13,7 +14,8 @@ fit2 <- lmekin(y ~ trt + (1|center), tdata)
 #  estimates.)  So we need to use a toloerance for the test.
 vcomp <- function(m1, m2, ...) {
     temp1 <- as.numeric(VarCorr(m1)[,2])  #lme gives a matrix of text
-    temp2 <- m2$sigma^2 * c(unlist(VarCorr(m2)), 1) #lmekin the variance struct
+#    temp2 <- m2$sigma^2 * c(unlist(VarCorr(m2)), 1) #lmekin the variance struct
+    temp2 <- c(unlist(VarCorr(m2)), m2$sigma^2) #lmekin the variance struct
     aeq(temp1, sqrt(temp2), ...)
 }
 
@@ -21,6 +23,14 @@ aeq(fit1$logLik, fit2$loglik)
 aeq(fit1$sigma, fit2$sigma, tol=1e-4)
 aeq(fixef(fit1), fixef(fit2), tol=1e-4)
 vcomp(fit1, fit2, tol=1e-3)
+
+# A second fit, using the matrix form
+ucen <- sort(unique(tdata$center))
+kmat <- diag(length(ucen))
+dimnames(kmat) <- list(ucen, ucen)
+fit3 <- lmekin(y ~ trt + (1|center), tdata, varlist=kmat)
+aeq(fit3$coefficients, fit2$coefficients)
+aeq(unlist(VarCorr(fit3)), unlist(VarCorr(fit2)))
 
 # Force the same coefs. 
 temp <- as.numeric(unclass(fit1$modelStruct$reStruct)[[1]]) 
@@ -53,8 +63,8 @@ efit1 <-  lme(effort ~ Type, data=mystool, random= ~1|Subject,
 efit2 <- lmekin(effort ~ Type + (1|Subject), mystool)
 aeq(efit1$logLik, efit2$loglik)
 aeq(fixef(efit1), fixef(efit2))
-vcomp(efit1, efit2, tol=1e-6)
-aeq(efit1$sigma, efit2$sigma)
+vcomp(efit1, efit2, tol=1e-5)
+aeq(efit1$sigma, efit2$sigma, tol=1e-5)
 
 efit3 <-lme(effort ~ Type, data=mystool, random= ~1|Subject,
             method="REML")

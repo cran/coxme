@@ -40,7 +40,7 @@ setAs("bdsmatrix", "dsCMatrix", function(from) {
                  p = temp$p,
                  x=  temp$x,
                  Dim = from@Dim,
-                 Dimnames=from@Dimnames,
+                 Dimnames= lapply(from@Dimnames, as.character),
                  uplo='U',
                  factors=list())
     }

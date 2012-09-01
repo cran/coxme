@@ -7,13 +7,11 @@ coxmeMlist <- function(varlist, rescale=FALSE, pdcheck=TRUE,  positive=TRUE) {
     pdcheck <- pdcheck
     if (!is.logical(positive)) stop("Invalid value for postive argument")
     positive <- positive
-    initialize <- function(vinit, fixed, intercept, G, X, sparse) {
-        vardefault <- c(.02, .1, .4, .8)^2
+    initialize <- function(vinit, fixed, intercept, G, X, control) {
         ngroup <- min(length(G), ncol(G))
         nvar   <- min(length(X), ncol(X))  # a NULL or a nx0 matrix yields 0
         if (ngroup >0 & nvar >0)
             return(list(error="Mlist cannot have both covariates and grouping"))
-
         if (!is.list(varlist)) varlist <- list(varlist)  # a naked matrix
         noname <- all(sapply(varlist, function(x) is.null(dimnames(x)) || 
                           (is.null(dimnames(x)[[1]]) & is.null(dimnames(x)[[2]]))))
@@ -26,12 +24,12 @@ coxmeMlist <- function(varlist, rescale=FALSE, pdcheck=TRUE,  positive=TRUE) {
             n <- nrow(G)
             G <- expand.nested(G)
             groups <- G[[ngroup]]  #drop all but the last
-            bname <- levels(groups)
-            if (noname) varlist <- lapply(varlist, namefun, bname)
+            if (noname) varlist <- lapply(varlist, namefun, levels(groups))
             if (any(sapply(varlist, function(x) inherits(x, "Matrix"))))
                 varlist <- lapply(varlist, function(x) as(x, "bdsmatrix"))
-            tlist <- bdsmatrix.reconcile(varlist, bname)
-            imap <- matrix(match(groups, dimnames(tlist[[1]])[[1]]))
+            tlist <- bdsmatrix.reconcile(varlist, levels(groups))
+            bname <-  dimnames(tlist[[1]])[[1]]
+            imap <- matrix(match(groups, bname))
             xmap <- NULL
             rname <- names(G)[[ngroup]]
             }
@@ -52,7 +50,7 @@ coxmeMlist <- function(varlist, rescale=FALSE, pdcheck=TRUE,  positive=TRUE) {
         ntheta <- length(varlist)
         fudge <- seq(1, 1.5, length=ntheta)
         itheta <- vector('list', ntheta)
-        for (i in 1:ntheta) itheta[[i]] <- vardefault * fudge[i]
+        for (i in 1:ntheta) itheta[[i]] <- control$varinit * fudge[i]
 
         if (length(vinit) >0) {
             if (length(vinit) != ntheta)
@@ -84,8 +82,8 @@ coxmeMlist <- function(varlist, rescale=FALSE, pdcheck=TRUE,  positive=TRUE) {
                 temp <- diag(kmat)
                 if (any(temp==0))
                     return(list(error="Diagonal of a variance matrix is zero"))
-                if (any(temp != temp[1])) 
-                    warning("Diagonal of variance matrix is not constant")
+        #        if (any(temp != temp[1])) 
+        #            warning("Diagonal of variance matrix is not constant")
                 if (max(temp) !=1) {
                     kmat <- kmat/max(temp)
                     tlist[[j]] <- kmat
@@ -136,7 +134,6 @@ coxmeMlist <- function(varlist, rescale=FALSE, pdcheck=TRUE,  positive=TRUE) {
             names(theta) <- vname
             theta <- list(theta)
             names(theta) <- parms$rname
-            
             names(b) <- parms$bname
             b <- list(b)
             names(b) <- parms$rname

@@ -9,7 +9,7 @@
 \usage{
 lmekin(formula, data, weights, subset, na.action, control,
 varlist, vfixed, vinit, method = c("ML", "REML"),
-sparse = c(1, 0), x = FALSE, y = TRUE,
+x = FALSE, y = FALSE, model=FALSE,
 random, fixed, variance, ...)
 }
 \arguments{
@@ -43,16 +43,16 @@ random, fixed, variance, ...)
     the variance.
   }
   \item{method}{fit using either maximum likelihood or restricted
-  maximum likelihood}
-  \item{sparse}{
-    rule for deciding sparsity of a random effect.  See the main
-    documentation for discussion of the issue.
+  maximum likelihood
 }
   \item{x}{
     if TRUE the X matrix (fixed effects) is included in the output object
 }
   \item{y}{
     if TRUE the y variable is included in the output object
+}
+  \item{model}{
+    if TRUE the model frame is included in the output object
 }
   \item{fixed, random, variance}{
     In an earlier version of \code{lmekin}
@@ -66,20 +66,27 @@ random, fixed, variance, ...)
 }
 
 \details{
-  This routine was originally written as a check for the \code{coxme}
-  routine; it uses the same code to process input arguments and form the
-  random effects, comparison of its output with \code{lme} helped
-  validate those operations.  It is possible to specify some models in
-  this framwork that can not be fit with lme, in particular models with
+  Let \eqn{A= \sigma^2 B}{A = sB} be the variance matrix of the random
+  effects where \eqn{\sigma^2}{s} is the residual variance for the
+  model.  Internally the routine solves for the parameters of
+  \eqn{B}{B}, computing \eqn{A}{A} at the end.  The \code{vinit} and
+  \code{vfixed} parmaters refer to \eqn{B}{B}, however.
+ 
+  It is possible to specify certain models in \code{lmekin}
+  that can not be fit with lme, in particular models with
   familial genetic effects, i.e., a \emph{kinship} matrix, and hence the
   name of the routine.  Using user-specified variance functions an even
   wider range of models is possible.
-
   For simple models the specification of the random effects follows the
   same form as the \code{lmer} function.  For any model which can be fit
   by both \code{lmekin} and \code{lmer}, the latter routine would
   normally be prefered due to a much wider selection of post-fit tools
-  for residuals, prediction, plotting, etc.  
+  for residuals, prediction and plotting.
+
+  Much of the underlying model code for specification and manipulation
+  of the random effects is shared with the \code{coxme} routine.  In
+  fact lmekin was originally written only to provide a test routine for
+  those codes, and no expectation that it would find wider utility.
 }
 \value{
   An object of class \code{lmekin}.
@@ -88,9 +95,13 @@ random, fixed, variance, ...)
 \author{Terry Therneau}
 \seealso{\code{\link{lmekin.object}}, \code{\link{coxme}}}
 \examples{
-  fit1 <- lme(effort ~ Type, data=ergoStool, random= ~1|Subject,
+  data(ergoStool, package="nlme")  # use a data set from nlme 
+  fit1 <- lmekin(effort ~ Type + (1|Subject), data=ergoStool)
+  \dontrun{
+  # gives the same result
+  fit2 <- lme(effort ~ Type, data=ergoStool, random= ~1|Subject,
             method="ML")
-  fit2 <- lmekin(effort ~ Type + (1|Subject), data=ergoStool)
+  } 
 }
 \keyword{ models }
 

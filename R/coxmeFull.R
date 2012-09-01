@@ -4,11 +4,10 @@ coxmeFull <- function(collapse=FALSE) {
     # Because of R's lexical scoping, the values of the options
     #  above, at the time the line below is run, are known to the
     #  initialize function
-    initialize <- function(vinit, fixed, intercept, G, X,  sparse) {
+    initialize <- function(vinit, fixed, intercept, G, X,  control) {
         ngroup <- min(length(G), ncol(G))
         nvar   <- min(length(X), ncol(X))  # a NULL or a nx0 matrix yields 0
-        vardefault <- c(.02, .1, .4, .8)^2
-        cordefault <- c(0, .3)
+        sparse <- control$sparse
         initmatch <- function(namelist, init) {
             if (is.null(names(init))) iname <- rep('', length(init))
             else iname <- names(init)
@@ -39,7 +38,7 @@ coxmeFull <- function(collapse=FALSE) {
                       theta <- vinit
                       }
                   }
-                else theta <- vardefault *.5 / mean(sqrt(apply(X,2,var)))
+                else theta <- control$varinit *.5 / mean(sqrt(apply(X,2,var)))
                   
                 if (length(fixed) >0) {
                     temp <- initmatch(xname[1], fixed)
@@ -65,7 +64,7 @@ coxmeFull <- function(collapse=FALSE) {
                 gname <-  names(G)
                 ntheta <- length(gname)
                 itheta <- vector('list', length=ntheta)
-                for (i in 1:ntheta) itheta[[i]] <- vardefault
+                for (i in 1:ntheta) itheta[[i]] <- control$varinit
                 if (ntheta >1) {
                     for (i in 2:ntheta) gname[i] <- paste(gname[i-1], gname[i], sep='/')
                     gname <- rev(gname) 
@@ -94,7 +93,7 @@ coxmeFull <- function(collapse=FALSE) {
                     }
                 }
 
-            # Deal with intercepts
+            # Deal with random slope terms
             if (ngroup ==1) {
                 gtemp <- as.factor(G[[1]])[,drop=TRUE] #drop unused levels
                 nlevel <- length(levels(gtemp))
@@ -162,8 +161,7 @@ coxmeFull <- function(collapse=FALSE) {
                     else {
                         if (!all(block.sparse)) { # Only a part is sparse
                             tsize <- sum(temp@blocksize[1:sum(block.sparse)]) # sparse coefs
-                            sparse <- 1:tsize
-                            dense <- (1 + tsize):sum(nlevel)
+                            sparse <- 1:tsize  #sparse portion, remainder is dense
                             smat <- (varlist[[ngroup]])[1:sparse, 1:sparse]
                             varlist[[ngroup]]
                             rmat <- matrix(0, sum(tsize), nlevel[1])
@@ -226,16 +224,16 @@ coxmeFull <- function(collapse=FALSE) {
             #Deal with slopes
             if (nvar > 0) {
                 xvar  <- apply(X,2,var)
-
+                cordefault <- control$corinit
                 itheta <- list()
                 is.variance <- NULL
                 if (intercept) {
-                    itheta <- c(itheta, list(vardefault))
-                    for (i in 1:ncol(X)) itheta <- c(itheta, list(cordefault))  #correlations
+                    itheta <- c(itheta, list(control$varinit))
+                    for (i in 1:ncol(X)) itheta <- c(itheta, list(control$corinit)) #correlations
                     is.variance <- c(TRUE, rep(FALSE, ncol(X)))
                     }
                 for (i in 1:ncol(X)) {
-                    itheta <- c(itheta, list(vardefault/xvar))  #variance
+                    itheta <- c(itheta, list(control$varinit/xvar))  #variance
                     if (i < ncol(X)) {
                         for (j in (i+1):ncol(X))  itheta <- c(itheta, list(cordefault))
                         is.variance <- c(is.variance, TRUE, rep(FALSE, ncol(X)-i))
@@ -282,7 +280,6 @@ coxmeFull <- function(collapse=FALSE) {
                 tmat <- tmat[row(tmat) >= col(tmat)]
                 vindx <- which(tmat==1)  #indices of the variance terms within each group
                 cindx <- which(tmat==0)  #indices of the correlations
-                tempn <- length(tmat)   # number of parameters per level
 
                 if (any(unlist(itheta[is.variance]) <=0)) 
                         return(list(error="Variances must be >0"))

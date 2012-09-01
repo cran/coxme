@@ -1,7 +1,6 @@
 
-R version 2.15.0 (2012-03-30)
-Copyright (C) 2012 The R Foundation for Statistical Computing
-ISBN 3-900051-07-0
+R Under development (unstable) (2015-03-01 r67921) -- "Unsuffered Consequences"
+Copyright (C) 2015 The R Foundation for Statistical Computing
 Platform: i686-pc-linux-gnu (32-bit)
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
@@ -18,18 +17,16 @@ Type 'q()' to quit R.
 
 > library(coxme)
 Loading required package: survival
-Loading required package: splines
 Loading required package: bdsmatrix
 
 Attaching package: 'bdsmatrix'
 
-The following object(s) are masked from 'package:base':
+The following object is masked from 'package:base':
 
     backsolve
 
+> require(nlme)
 Loading required package: nlme
-Loading required package: Matrix
-Loading required package: lattice
 > aeq <- function(x, y, ...) all.equal(as.vector(x), as.vector(y), ...)
 > tdata <- eortc
 > tdata$center2 <- factor(tdata$center)
@@ -44,7 +41,8 @@ Loading required package: lattice
 > #  estimates.)  So we need to use a toloerance for the test.
 > vcomp <- function(m1, m2, ...) {
 +     temp1 <- as.numeric(VarCorr(m1)[,2])  #lme gives a matrix of text
-+     temp2 <- m2$sigma^2 * c(unlist(VarCorr(m2)), 1) #lmekin the variance struct
++ #    temp2 <- m2$sigma^2 * c(unlist(VarCorr(m2)), 1) #lmekin the variance struct
++     temp2 <- c(unlist(VarCorr(m2)), m2$sigma^2) #lmekin the variance struct
 +     aeq(temp1, sqrt(temp2), ...)
 + }
 > 
@@ -55,6 +53,16 @@ Loading required package: lattice
 > aeq(fixef(fit1), fixef(fit2), tol=1e-4)
 [1] TRUE
 > vcomp(fit1, fit2, tol=1e-3)
+[1] TRUE
+> 
+> # A second fit, using the matrix form
+> ucen <- sort(unique(tdata$center))
+> kmat <- diag(length(ucen))
+> dimnames(kmat) <- list(ucen, ucen)
+> fit3 <- lmekin(y ~ trt + (1|center), tdata, varlist=kmat)
+> aeq(fit3$coefficients, fit2$coefficients)
+[1] TRUE
+> aeq(unlist(VarCorr(fit3)), unlist(VarCorr(fit2)))
 [1] TRUE
 > 
 > # Force the same coefs. 
@@ -99,9 +107,9 @@ Loading required package: lattice
 [1] TRUE
 > aeq(fixef(efit1), fixef(efit2))
 [1] TRUE
-> vcomp(efit1, efit2, tol=1e-6)
+> vcomp(efit1, efit2, tol=1e-5)
 [1] TRUE
-> aeq(efit1$sigma, efit2$sigma)
+> aeq(efit1$sigma, efit2$sigma, tol=1e-5)
 [1] TRUE
 > 
 > efit3 <-lme(effort ~ Type, data=mystool, random= ~1|Subject,
@@ -119,4 +127,4 @@ Loading required package: lattice
 > 
 > proc.time()
    user  system elapsed 
-  4.980   0.068   5.064 
+  5.476   0.344   5.820 

@@ -1,30 +1,28 @@
 \documentclass{article}
 \usepackage{noweb}
-\usepackage[pdftex]{graphicx}
 \usepackage{amsmath}
+\usepackage{graphicx}
 %\usepackage{times}
 \addtolength{\textwidth}{1in}
 \addtolength{\oddsidemargin}{-.5in}
 \setlength{\evensidemargin}{\oddsidemargin}
 
-\newcommand{\myfig}[1]{\resizebox{\textwidth}{!}
-                        {\includegraphics{figure/#1.pdf}}}
+\newcommand{\myfig}[1]{\includegraphics[width=\textwidth]{figure/#1.pdf}}
 
-\noweboptions{breakcode}
 \title{The \emph{coxme} function in S}
-\author{Terry Therneau // Mayo Clinic}
+\author{Terry Therneau \\ Mayo Clinic}
 
 \begin{document}
 \maketitle
 \tableofcontents
 \section{Introduction}
  The [[coxme]] function for mixed effects analyses based on a Cox
-proportional hazards model is one of the later additions to the
-[[survival]] library in S.
-\footnote{S is a statistical language, S-Plus and R are two different
-dialects of that language.  The functions described here work in both.}
-It is easily the most complex bit of code in the package from all points
-of view: mathematical, algorithmic, and S code wise.
+proportional hazards model is one of the later additions to my 
+survival functions in S
+\footnote{S is a statistical language with R and S-Plus being implementations
+ of that language.  I use R daily, but still refer to my code as S}.
+It is easily the most complex bit of code in this ecosystem from all points
+of view: mathematical, algorithmic, and R code wise.
 As such, it seems like a natural candidate for documentation and 
 maintainance using the literal programming model.  
 \begin{quotation}
@@ -40,20 +38,14 @@ better understood code.
 
 Note that almost all of the code uses a \emph{.Rnw} suffix, taking
 advantage of the very capable emacs modes that are part of the ESS pacakge.
-However, it is not processed by the [[Sweave]]
-package, which is designed for reports containing 
+However, it is not processed by the [[Sweave]] or [[knitR]]
+packages, both of which are designed for reports containing 
 \emph{exectuted} S code.   
-We currently can't use [[Sweave]] to manipulate our code, however,
-because it is not able to deal with unordered clauses.
-That is, for pedagogic reasons we often want to first give an overall
-outline of the code such as you find just below, and then flesh out 
-the individual parts (such as \emph{``decompose-formula''} later
-in the document.  Sweave currently fails with a ``not defined''
-error in such a case.
-We hope to eventually rectify this, but for now
-we use the
-standard noweb program to handle the files, with a Makefile to drive
-the process.
+In contrast this document makes use of the [[noweb]] package to document (weave)
+and generate the R source code (tangle) from a single file.
+The [[noweb]] weave command is considerably simpler than that for [[knitr]]
+since it does not have to evaluate code, while its tangle function is
+more complex.
 
 \section{Main program}
 The [[coxme]] code starts with a fairly standard argument list.
@@ -61,11 +53,11 @@ The [[coxme]] code starts with a fairly standard argument list.
 coxme <- function(formula,  data, 
 	weights, subset, na.action, init, 
 	control, ties= c("efron", "breslow"),
-	varlist, vfixed, vinit, sparse=c(50,.02),
+	varlist, vfixed, vinit,
 	x=FALSE, y=TRUE, 
         refine.n=0, random, fixed, variance,  ...) {
 
-    time0 <- proc.time()    #debugging line
+    #time0 <- proc.time()    #debugging line
     ties <- match.arg(ties)
     Call <- match.call()
 
@@ -74,7 +66,8 @@ coxme <- function(formula,  data,
     <<build-control-structures>>
     <<call-computation-routine>>
     <<finish-up>>
-@ %def coxme
+}
+@
 
 The arguments to the function are described below,
 omitting those that are identical to the [[coxph]] function.
@@ -88,11 +81,6 @@ be a list if there is only one random term.
 selected variance
 components.  
 \item[vinit] Initial value(s) for the variance components in the iteration.
-\item[sparse] The rule for deciding that the estimation of a term should be
-sparse.  
-\item[shortlabel] An option that applies to the creation of coefficient
-labels for nested effects.  See the [[strata]] function for more
-information.
 \item[refine.n] The number of Monte Carlo iterations to be done at the final
 iteration, to refine the Laplace approximation of the likelihood.
 \item[random, fixed, variance] These are included for backwards compatability 
@@ -100,7 +88,7 @@ with the first verion of coxme.  They may be removed at some
 point in the future.
 \end{description}
 
-The [[sparse]] option requires some further discussion.
+The [[sparse]] option has been moved to the coxme.control function.
 Cox model variance matrices are never sparse, but we have found that
 in one very particular instance we can ignore many off-diagonal
 elements.  This combined with the naturally sparse structure of
@@ -128,7 +116,7 @@ is workable, but for now only the one known case is allowed.
 
 
 \subsection{Basic setup}
-The [[coxme]] code start its model handling with a nod to backwards
+The [[coxme]] code starts its model handling with a nod to backwards
 compatability.
 The argument list starts with the usual [[(formula, data, weights, ...]]
 set, but also allows [[random]] and [[fixed]] as optional arguments.
@@ -168,10 +156,6 @@ if (!missing(variance)) {
 @
 A formula in S is represented as a list of length 2 or 3, whose first element
 is as.name('~'), then the left hand side, if present, then the right hand side.
-%Note that if the random statement is exceptionally long, then the [[deparse]]
-%command will produce a vector of charcter strings, one for each line of 
-%output if this were echoed to the terminal;
-%the [[paste(... ,collapse)]] construction rejoins these.
 Note that the old version of coxme contains almost the same code, since
 to correctly handle missing values it needed to retrieve all the
 relevant variables, both fixed and random, with a single list.
@@ -274,8 +258,6 @@ fixed and random effects, respectively,
 with $X$ and $Z$ as the respective design matrices.
 
 It is now time to build $X$, the design matrix for the fixed effects.
-The
-of the model. 
 We first separate the model into random and fixed effects terms
 using the [[formula1]] function.
 As an argument it takes the model formula as given by the user
@@ -416,6 +398,7 @@ resolve the ambiguity.
 nrandom <- length(flist$random)
 if (nrandom ==0) stop("No random effects terms found")
 vparm <- vector('list', nrandom)
+is.variance <- rep(TRUE, nrandom)  #penalty fcn returns a variance or penalty?
 ismat <- function (x) {
     inherits(x, "matrix") || inherits(x, "bdsmatrix") | inherits(x, "Matrix")
 }
@@ -531,11 +514,11 @@ for (i in 1:nrandom) {
     cmat <- getcmat(f2$fixed, m)
     groups <- getgroups(f2$group, m)
     ifun <- vfun$initialize(vinit[[i]], vfixed[[i]], intercept=f2$intercept, 
-                        groups, cmat, sparse)
+                        groups, cmat, control)
     if (!is.null(ifun$error)) 
         stop(paste("In random term ", i, ": ", ifun$error, sep=''))
     vparm[[i]] <- ifun$parms
-
+    if (!is.null(ifun$is.variance)) is.variance[i] <- ifun$is.variance
     itheta <- c(itheta, ifun$theta)
     ntheta[i] <- length(ifun$theta)
 
@@ -570,7 +553,9 @@ for (i in 1:nrandom) {
         ncoef[i,2] <- ncol(temp)
         zmat <- cbind(zmat, temp)
         }
-    } 
+}
+if (any(is.variance) & !all(is.variance))
+         stop("All variance terms must have the same is.variance setting") 
 @ 
 
 The matrix $F$ holds the columns associated with intercept terms,
@@ -650,13 +635,14 @@ else {
 @ 
 
 The actual computation of the model is done in [[coxme.fit]].  
-This was separated from the main routine partly to leave the code in
+This was separated from the main routine to leave the code in
 managable chunks.
 <<call-computation-routine>>=
 fit <- coxme.fit(X, Y, strats, offset, init, control, weights=weights,
                  ties=ties, row.names(m),
                  fmat, zmat, varlist, vparm, 
-                 itheta, ntheta, ncoef, refine.n)
+                 itheta, ntheta, ncoef, refine.n,
+                 is.variance = any(is.variance))
 @  
 
 Then we finish up by packaging up the results for a user.
@@ -772,10 +758,9 @@ fit$ties <- ties
 names(fit$loglik) <- c("NULL", "Integrated", "Penalized")
 oldClass(fit) <- 'coxme'
 fit
-}
 @ 
 
-\subsection{Creating the $C$ and $F$ matrices}
+\subsection{Creating the C and F matrices}
 To create the columns for $F$ there are 3 steps.
 First we get the variables from the data frame, treating each of them
 as a factor.  This is then submitted to the
@@ -879,6 +864,7 @@ newzmat <- function(xmat, xmap) {
     }
 @ 
 \section{The model formula}
+\label{sect:formula}
 \subsection{Introduction}
 The first version of [[coxme]] followed the [[lme]] convention of
 using separate formulas for the fixed and random portions of the
@@ -919,7 +905,7 @@ random term.
 
 \begin{figure}
 \myfig{figtree1}
-\caption{The parse tree for [[y ~ x1 + (x3 + x4)* x2]].}
+\caption{The parse tree for \texttt{y \textasciitilde x1 + (x3 + x4)* x2}.}
 \label{figtree1}
 \end{figure}
 
@@ -929,7 +915,7 @@ It's tree is shown in figure \ref{figtree1}.
 At each level the figure lists the class of the object along with its name;
 to lessen crowding in the plot objects of class `name' do not have the class
 listed.
-The arguments to a call are the branched below each call.
+The arguments to a call are the branches below each call.
 A formula is structured like a call to the ``\verb2~2'' operator, and a
 parenthesised expression like a call with a single argument.
 
@@ -1138,12 +1124,12 @@ formula2 <- function(term) {
 @ 
 
 This routine looks for an intercept term - that's all.
-It's easiest to use the built in [[terms]] function for this,
+It would be easiest to use the built in [[terms]] function for this,
 since the intercept could be anywhere, and someone might have put
 in a -1 term which makes it trickier.   However, we can't: the   %'
 default S strategy would claim that [[(age+weight) |1)]] has an intercept.
-As an advantage, we know that there can be no operators except ``+''
-signs in the formula, or perhaps a ``-1''.  
+As an advantage, we know that there can be no operators except ``+'' or ``-''
+signs in the subformula at hand.  
 <<formula>>=
 findIntercept <- function(x) {
    if (is.call(x)) {
@@ -1164,9 +1150,9 @@ shows that it must be a pretty sound idea, given the extensive use
 that code has seen.)
 However, that line would recur into other functions, like [[logb(x5, 2)]]
 for instance.  
-For instance the following is legal but has a vertical bar we wish to
+The following is legal but has a vertical bar we wish to
 ignore: [[I(x1 | x2)]].
-I have never seen an \emph{actual} use of something like this,
+I have never seen an \emph{actual} use of such a phrase,
 but nevertheless I'm taking the paranoid  %'
 route.  
 
@@ -1190,7 +1176,7 @@ properly deal with vertical bars.
 Given a formula it returns a formula.
 We only recur on 4 standard operators to avoid looking inside functions. 
 An example would be [[~ age + I(x1 | x2) + (1|group)]]; we take care not to
-look inside the [[I()]], or an ns() call, etc.
+look inside the [[I()]] or an ns() call, etc.
 I'm not sure that replacing the bar inside the I() function will            %'
 cause any problems for model.frame; so I may be being overly cautious.
 The [[if length(x)]] statement below will most often arise from a formula 
@@ -1384,10 +1370,9 @@ failed with an error when the formula was parsed.
 
 The [[initialize]] and [[generate]] routines each start by
 defining a few variables, and then treating the five cases one by one.
-The vardefault and cordefault values are the default lists of starting values
-to try for variance and correlation terms, respectively.  (Perhaps this should
-be an argument to the routine?)  I list them here at the top so as to be able
-to fiddle with them over time.
+The varinit and corinit values are the default lists of starting values
+to try for variance and correlation terms, respectively,
+and are defined in the coxme.control function.
 The current ones are rather ad hoc. We have found that the estimated standard
 deviation of a random effect is often between .1 and .3, corresponding to
 exp(.1)= 1.1 to exp(.3)= 1.35 fold ``average'' relative risks associated with
@@ -1400,7 +1385,7 @@ variance scale is stretched out giving a log-likelihood surface that is almost
 flat; a Newton-Raphson iteration starting at log(.2) may have log(.0001) as its
 next guess and get stuck there, never finding a true maximum that lies in the
 range of .01 to .05. 
-Finally, a few data sets have solutions with variance $>1$ for which a larger
+Finally, few data sets have solutions with variance $>1$ for which a larger
 starting value suffices.
 
 For the correlation we use 0 and .3.  Negative values are not on the list since
@@ -1410,11 +1395,10 @@ There also appears to be less of a need for multiple starting estimates.  Soluti
 rarely converge to the endpoints of the transformed range ($> .95$).
 
 <<coxmeFull-init>>= 
-initialize <- function(vinit, fixed, intercept, G, X,  sparse) {
+initialize <- function(vinit, fixed, intercept, G, X,  control) {
     ngroup <- min(length(G), ncol(G))
     nvar   <- min(length(X), ncol(X))  # a NULL or a nx0 matrix yields 0
-    vardefault <- c(.02, .1, .4, .8)^2
-    cordefault <- c(0, .3)
+    sparse <- control$sparse
     <<initmatch>>
     
     if (ngroup==0) {
@@ -1429,7 +1413,7 @@ initialize <- function(vinit, fixed, intercept, G, X,  sparse) {
             <<initialize-inits>>
             }
 
-        # Deal with intercepts
+        # Deal with random slope terms
         if (ngroup ==1) {
             <<coxmeFull-init-2>>
                 }
@@ -1477,7 +1461,7 @@ if (length(vinit) >0) {
       theta <- vinit
       }
   }
-else theta <- vardefault *.5 / mean(sqrt(apply(X,2,var)))
+else theta <- control$varinit *.5 / mean(sqrt(apply(X,2,var)))
   
 if (length(fixed) >0) {
     temp <- initmatch(xname[1], fixed)
@@ -1592,7 +1576,7 @@ variable to the first.
 gname <-  names(G)
 ntheta <- length(gname)
 itheta <- vector('list', length=ntheta)
-for (i in 1:ntheta) itheta[[i]] <- vardefault
+for (i in 1:ntheta) itheta[[i]] <- control$varinit
 if (ntheta >1) {
     for (i in 2:ntheta) gname[i] <- paste(gname[i-1], gname[i], sep='/')
     gname <- rev(gname) 
@@ -1780,8 +1764,7 @@ if (sum(block.sparse) <=1) {#make them all ordinary matrices
 else {
     if (!all(block.sparse)) { # Only a part is sparse
         tsize <- sum(temp@blocksize[1:sum(block.sparse)]) # sparse coefs
-        sparse <- 1:tsize
-        dense <- (1 + tsize):sum(nlevel)
+        sparse <- 1:tsize  #sparse portion, remainder is dense
         smat <- (varlist[[ngroup]])[1:sparse, 1:sparse]
         varlist[[ngroup]]
         rmat <- matrix(0, sum(tsize), nlevel[1])
@@ -1908,16 +1891,16 @@ Currently we do rescale the default starting estimates, thus if a user replaces
 $X$ with $2X$ the code will follow the same iteration path.
 <<coxmeFull-init-4>>=
 xvar  <- apply(X,2,var)
-
+cordefault <- control$corinit
 itheta <- list()
 is.variance <- NULL
 if (intercept) {
-    itheta <- c(itheta, list(vardefault))
-    for (i in 1:ncol(X)) itheta <- c(itheta, list(cordefault))  #correlations
+    itheta <- c(itheta, list(control$varinit))
+    for (i in 1:ncol(X)) itheta <- c(itheta, list(control$corinit)) #correlations
     is.variance <- c(TRUE, rep(FALSE, ncol(X)))
     }
 for (i in 1:ncol(X)) {
-    itheta <- c(itheta, list(vardefault/xvar))  #variance
+    itheta <- c(itheta, list(control$varinit/xvar))  #variance
     if (i < ncol(X)) {
         for (j in (i+1):ncol(X))  itheta <- c(itheta, list(cordefault))
         is.variance <- c(is.variance, TRUE, rep(FALSE, ncol(X)-i))
@@ -1964,7 +1947,6 @@ tmat <- diag(nvar+ intercept)  #dummy variance/cov matrix
 tmat <- tmat[row(tmat) >= col(tmat)]
 vindx <- which(tmat==1)  #indices of the variance terms within each group
 cindx <- which(tmat==0)  #indices of the correlations
-tempn <- length(tmat)   # number of parameters per level
 
 if (any(unlist(itheta[is.variance]) <=0)) 
         return(list(error="Variances must be >0"))
@@ -2250,14 +2232,24 @@ The matrices must have dimnames that match the levels of the
 grouping variable.  Much of the initialization work is to verify
 this, remove unneeded columns of the matrices (if for instance a
 subject has been dropped due to missing values), and reorder the
-grouping variable to match the resulting matrix. ( Sparse matrices
-cannot be arbitrarily reordered, so whatever label is on row 1 of the
-variance matrix needs to become the first level of the grouping
-variable, the second row the second, etc, during the computations.)
-For this reason I at present only allow terms of the form 
+grouping variable to match the resulting matrix. 
+We can't reorder sparse matrices willy-nilly without (potentially)
+creating disastrous consequences wrt losing sparsity in the
+matrix decompostion.
+So unlike most fitting routines that will create dummy coeffcients
+that are in the order of the levels of the grouping variable, we
+keep random effects in the order that they appear in the matrix $A$.  
+The [[imat]] vector contains the ``new'' covariate for each subject,
+e.g., the first person is in group 10, the next in group 2, etc.
+If there are multiple matrices, then the bsdmatrix.reconcile routine
+spends most of it's energy deciding if they can be put into a common
+row/column ordering.  
+(If designing this over, I'd likely have the routine just check ``are
+they the same'' and give an error message otherwise.)
+
+Because of this complexity, I only allow terms of the form
 [[(1|g)]] or [[(x|1)]] ($x$ could be a matrix or list of variables,
-$g$ could be nested), since I don't have a good scheme for naming  %'
-the $b$ vector when there are both covariates and grouping.
+$g$ could be nested) when a user-specified matrix is involved.
 
 Three checks on the matrices are commonly added.  
 \begin{enumerate}
@@ -2309,13 +2301,11 @@ them before calling the routine --- but only if they are exactly
 the right dimension.  This allows a user to give an unnamed matrix
 that is just exactly the right length.
 <<coxmeMlist-init>>=
-initialize <- function(vinit, fixed, intercept, G, X, sparse) {
-    vardefault <- c(.02, .1, .4, .8)^2
+initialize <- function(vinit, fixed, intercept, G, X, control) {
     ngroup <- min(length(G), ncol(G))
     nvar   <- min(length(X), ncol(X))  # a NULL or a nx0 matrix yields 0
     if (ngroup >0 & nvar >0)
         return(list(error="Mlist cannot have both covariates and grouping"))
-
     if (!is.list(varlist)) varlist <- list(varlist)  # a naked matrix
     noname <- all(sapply(varlist, function(x) is.null(dimnames(x)) || 
                       (is.null(dimnames(x)[[1]]) & is.null(dimnames(x)[[2]]))))
@@ -2328,12 +2318,12 @@ initialize <- function(vinit, fixed, intercept, G, X, sparse) {
         n <- nrow(G)
         G <- expand.nested(G)
         groups <- G[[ngroup]]  #drop all but the last
-        bname <- levels(groups)
-        if (noname) varlist <- lapply(varlist, namefun, bname)
+        if (noname) varlist <- lapply(varlist, namefun, levels(groups))
         if (any(sapply(varlist, function(x) inherits(x, "Matrix"))))
             varlist <- lapply(varlist, function(x) as(x, "bdsmatrix"))
-        tlist <- bdsmatrix.reconcile(varlist, bname)
-        imap <- matrix(match(groups, dimnames(tlist[[1]])[[1]]))
+        tlist <- bdsmatrix.reconcile(varlist, levels(groups))
+        bname <-  dimnames(tlist[[1]])[[1]]
+        imap <- matrix(match(groups, bname))
         xmap <- NULL
         rname <- names(G)[[ngroup]]
         }
@@ -2374,7 +2364,7 @@ singularity, so we fudge the default initial values.
 ntheta <- length(varlist)
 fudge <- seq(1, 1.5, length=ntheta)
 itheta <- vector('list', ntheta)
-for (i in 1:ntheta) itheta[[i]] <- vardefault * fudge[i]
+for (i in 1:ntheta) itheta[[i]] <- control$varinit * fudge[i]
 
 if (length(vinit) >0) {
     if (length(vinit) != ntheta)
@@ -2412,8 +2402,8 @@ for (j in 1:ntheta) {
         temp <- diag(kmat)
         if (any(temp==0))
             return(list(error="Diagonal of a variance matrix is zero"))
-        if (any(temp != temp[1])) 
-            warning("Diagonal of variance matrix is not constant")
+#        if (any(temp != temp[1])) 
+#            warning("Diagonal of variance matrix is not constant")
         if (max(temp) !=1) {
             kmat <- kmat/max(temp)
             tlist[[j]] <- kmat
@@ -2462,7 +2452,6 @@ wrapup <- function(newtheta, b, parms) {
         names(theta) <- vname
         theta <- list(theta)
         names(theta) <- parms$rname
-        
         names(b) <- parms$bname
         b <- list(b)
         names(b) <- parms$rname
@@ -2506,10 +2495,12 @@ The overall outline of the routine is
 \subsection{Penalty matrix}
 For the C code, the variance matrices of the individual
 random effects are glued together into one
-large bdsmatrix object $\Sigma$, [[kmat]] in the code; 
+large bdsmatrix object $\Sigma$, [[kmat]] in the code.
+When [[inverse=TRUE]] (the default)
 the inverse matrix $P = \Sigma^{-1}$ or 
-[[ikmat]] is the penalty matrix of the computation,
+[[ikmat]] is the penalty matrix of the computation, and
 is what is actually passed to C.
+When it is false the user is working directly with penalty matrices.
 (The first large use of this code was for family correlation, where
 $\Sigma$ is based on the \emph{kinship} matrix.  The variable names
 [[kmat]] = $\Sigma$, [[ikmat]] for the inverse and [[kfun]] for
@@ -2799,19 +2790,33 @@ is a character string giving the choice.
 logfun <- function(theta, varlist, vparm, kfun, ntheta, ncoef, 
                    init, fit0, iter, ofile) {
     gkmat <- gchol(kfun(theta, varlist, vparm, ntheta, ncoef))
-    ikmat <- solve(gkmat)  #inverse of kmat, which is the penalty
-    if (any(diag(ikmat) <=0)) { #Not an spd matrix
-        return(0)  # return a "worse than null" fit
+    if (is.variance) {
+        ikmat <- solve(gkmat)  #inverse of kmat, which is the penalty
+        if (any(diag(ikmat) <=0)) { #Not an spd matrix
+            return(0)  # return a "worse than null" fit
         }
-    fit <- .C(ofile,
-              iter= as.integer(c(iter,iter)),
-              beta = as.double(init),
-              loglik = double(2),
-              as.double(ikmat@blocks),
-              as.double(ikmat@rmat),
-              hdet = double(1))
-    ilik <- fit$loglik[2] -
-             .5*(sum(log(diag(gkmat))) + fit$hdet)
+        fit <- .C(ofile,
+                  iter= as.integer(c(iter,iter)),
+                  beta = as.double(init),
+                  loglik = double(2),
+                  as.double(ikmat@blocks),
+                  as.double(ikmat@rmat),
+                  hdet = double(1))
+        ilik <- fit$loglik[2] -
+            .5*(sum(log(diag(gkmat))) + fit$hdet)
+    }
+    else {
+        # The variance functions have returned the inverse matrix
+        fit <- .C(ofile,
+                  iter= as.integer(c(iter,iter)),
+                  beta = as.double(init),
+                  loglik = double(2),
+                  as.double(gkmat@blocks),
+                  as.double(gkmat@rmat),
+                  hdet = double(1))
+        ilik <- fit$loglik[2] +
+            .5*(sum(log(diag(gkmat))) - fit$hdet)
+    }
     -(1+ ilik - fit0)
     }
 @ 
@@ -2943,8 +2948,8 @@ routine would never be called directly by a user.
 coxme.fit <- function(x, y, strata, offset, ifixed, control,
 			weights, ties, rownames, 
 			imap, zmat, varlist, vparm, itheta,
-                        ntheta, ncoef, refine.n) {
-    time0 <- proc.time()
+                        ntheta, ncoef, refine.n, is.variance) {
+    #     time0 <- proc.time() #debugging line
     n <-  nrow(y)
     if (length(x) ==0) nvar <-0
     else nvar <- ncol(as.matrix(x))
@@ -2976,7 +2981,7 @@ orders the entry times.
 	status <- y[,3]
         ofile <-  'agfit6b'
         rfile <-  'agfit6d'
-        coxfitfun<- survival:::agreg.fit
+        coxfitfun<- agreg.fit
         }
     else {
 	if (length(strata) ==0) {
@@ -2990,7 +2995,7 @@ orders the entry times.
 	status <- y[,2]
         ofile <- 'coxfit6b' # fitting routine
         rfile <- 'coxfit6d' # refine.n routine
-        coxfitfun <- survival:::coxph.fit
+        coxfitfun <- coxph.fit
         }
 @ 
 
@@ -3012,7 +3017,10 @@ Note that if there are no covariates or only an offset term, then
 the returned log-likelihood is of length 1, not 2.
 a null model.
 <<null-fit>>=
-if (is.null(ifixed) ) ifixed <- rep(0., ncol(x))
+if (is.null(ifixed) ) {
+    ifixed <- rep(0., ncol(x))
+    if (length(ifixed) ==0) ifixed <- NULL  #agreg.fit didn't like numeric(0)
+}
 else if (length(ifixed) != ncol(x))
     stop("Wrong length for initial parameters of the fixed effects")
 
@@ -3098,16 +3106,28 @@ The phrase [[c(ikmat@rmat,0)]] makes sure something is passed when
 
 <<coxme-fit>>=
 gkmat <- gchol(kfun(theta, varlist, vparm, ntheta, ncoef))
-ikmat <- solve(gkmat)  #inverse of kmat, which is the penalty
-fit <- .C(ofile,
-          iter= as.integer(c(0, control$iter.max)),
-          beta = as.double(c(rep(0., npenal), fit0$coef*scale)),
-          loglik = double(2),
-          as.double(ikmat@blocks),
-          as.double(c(ikmat@rmat,0)),
-          hdet = double(1))
-ilik <- fit$loglik[2] -
-  .5*(sum(log(diag(gkmat))) + fit$hdet)
+if (is.variance) {
+    ikmat <- solve(gkmat)  #inverse of kmat, which is the penalty
+    fit <- .C(ofile,
+              iter= as.integer(c(0, control$iter.max)),
+              beta = as.double(c(rep(0., npenal), fit0$coef*scale)),
+              loglik = double(2),
+              as.double(ikmat@blocks),
+              as.double(c(ikmat@rmat,0)),
+              hdet = double(1))
+    ilik <- fit$loglik[2] -
+        .5*(sum(log(diag(gkmat))) + fit$hdet)
+} else {
+    fit <- .C(ofile,
+              iter= as.integer(c(0, control$iter.max)),
+              beta = as.double(c(rep(0., npenal), fit0$coef*scale)),
+              loglik = double(2),
+              as.double(gkmat@blocks),
+              as.double(c(gkmat@rmat,0)),
+              hdet = double(1))
+    ilik <- fit$loglik[2] +
+        .5*(sum(log(diag(gkmat))) - fit$hdet)
+}
 iter[2] <- iter[2] + fit$iter[2]
 @
               
@@ -3341,7 +3361,33 @@ vcov.coxme <- function(object, ...) {
     as.matrix(object$var[indx, indx])
 }
 
-vcov.lmekin <- vcov.coxme    
+vcov.lmekin <- vcov.coxme  
+@ 
+
+For the logLik method we give the number of events as the number of
+observations.  
+<<ranef>>= 
+logLik.coxme <- function(object, type=c("penalized", "integrated"), ...) {
+    type <- match.arg(type)
+    if (type=='penalized') {
+        out <- object$loglik[3] + object$penalty
+        attr(out, "df") <- object$df[2]
+        }
+    else {
+        out <- object$loglik[2]
+        attr(out, "df") <- object$df[1]
+        }
+    attr(out, "nobs") <- object$n[1]  #number of events
+    class(out) <- "logLik"
+    out
+}
+
+logLik.lmekin <- function(object, ...) {
+    out <- object$loglik[2]
+    attr(out, "df") <- object$df[1]
+    class(out) <- "logLik"
+    out
+    }
 @ 
 \section{lmekin}
 The original kinship library had an implementation of linear mixed effects
@@ -3349,13 +3395,16 @@ models using the matrix code found in coxme.
 The reason for the program was entirely to check our arithmetic: it should
 get the same answers as lme.
 With more time and a larger test suite the routine is no longer 
-necessary for this purpose, however, it became popular with 
-users since it can fit a few models that lme cannot.
+necessary for this purpose, and I intended to retire it.
+However, it had became popular with 
+users since it can fit a few models that lme cannot, so now is a permanent
+part of the package.
 
 The orignal code was based on equation 2.14 of Pinheiro and Bates, the one
-they do not recommmend for computation, however it was restricted to
-a single random effect.  
-This version is more general.
+they do not recommmend for computation.
+This is a quite sensible formula if there is a \emph{single}
+random effect but it does not generalize well.
+This release follows the compuational strategy of lme much more closely.
 Note that a lot of the code below is a pure copy of the coxme code.
 
 <<lmekin>>=
@@ -3363,12 +3412,11 @@ lmekin <- function(formula,  data,
         weights, subset, na.action,
         control, varlist, vfixed, vinit, 
         method=c("ML", "REML"),
-        sparse=c(1,0),
-        x=FALSE, y=TRUE, 
+        x=FALSE, y=FALSE, model=FALSE,
         random, fixed, variance,  ...) {
 
     Call <- match.call()
-
+    sparse <- c(1,0)  #needed for compatablily with coxme code
     <<lme-process-standard-arguments>>
     <<decompose-lme-formula>>
     <<build-control-structures>>
@@ -3455,7 +3503,8 @@ Now for the actual compuation.
 We want to solve
 \begin{align*}
   y & = X\beta + Zb + \epsilon \\
-  b & \sim N(0, \sigma^2K)
+  b & \sim N(0, \sigma^2K) \\
+  \epsilon &\sim N(0, \sigma^2)
 \end{align*}
 where $K$ is the variance matrix returned by [[kfun]].
 If we know $K$, one way to solve this is as an augmented
@@ -3781,6 +3830,9 @@ Bundle the results together into an output object.
 This object differs from the old lme object, having both more and less
 information.  
 First we call the wrapup functions to retransform any parameters.
+At this point we also rescale the other variance components: the iteration
+used $\sigma^2 \Sigma$ as the variance matrix for the random effects,
+the user wants to think of $\Sigma$ as the product of these.
 <<lmekin-finish-up>>=
 
 newtheta <- random.coef <- list()  
@@ -3790,7 +3842,7 @@ bindex <- rep(1:nrandom, rowSums(ncoef)) # which b's to which terms
 for (i in 1:nrandom) {
     temp <- varlist[[i]]$wrapup(theta[sindex==i], rcoef[bindex==i], 
                                 vparm[[i]])
-    newtheta <- c(newtheta, temp$theta)
+    newtheta <- c(newtheta, lapply(temp$theta, function(x) x*sigma2))
     if (!is.list(temp$b)) {
         temp$b <- list(temp$b)
         names(temp$b) <- paste("Random", i, sep='')
@@ -3836,6 +3888,9 @@ if (!is.null(theta)) {
     fit$rvar <- mfit$hessian
     fit$iter <- mfit$counts
 }
+if (x) fit$x <- X
+if (y) fit$y <- Y
+if (model) fit$model <- m
 
 na.action <- attr(m, "na.action")
 if (length(na.action)) fit$na.action <- na.action
@@ -3928,6 +3983,8 @@ The key of the algorithm is to note the pattern of numbers above: the
 indices for the diagonal are 0, 2, 2+3, 2+3+4, \ldots,
 (remember that the C indices start at zero),
 and the difference between rows is 1, 2, 3, \ldots.
+A bdsmatrix allows dimnames to be an integer, but a regular R matrix or Matrix
+object does not.
 <<bdsmatrix>>=
 setAs("bdsmatrix", "dsCMatrix", function(from) {
     if (length(from@blocks)==0) symmpart(Matrix(from@rmat))
@@ -3942,7 +3999,7 @@ setAs("bdsmatrix", "dsCMatrix", function(from) {
                  p = temp$p,
                  x=  temp$x,
                  Dim = from@Dim,
-                 Dimnames=from@Dimnames,
+                 Dimnames= lapply(from@Dimnames, as.character),
                  uplo='U',
                  factors=list())
     }

@@ -164,10 +164,9 @@ failed with an error when the formula was parsed.
 
 The [[initialize]] and [[generate]] routines each start by
 defining a few variables, and then treating the five cases one by one.
-The vardefault and cordefault values are the default lists of starting values
-to try for variance and correlation terms, respectively.  (Perhaps this should
-be an argument to the routine?)  I list them here at the top so as to be able
-to fiddle with them over time.
+The varinit and corinit values are the default lists of starting values
+to try for variance and correlation terms, respectively,
+and are defined in the coxme.control function.
 The current ones are rather ad hoc. We have found that the estimated standard
 deviation of a random effect is often between .1 and .3, corresponding to
 exp(.1)= 1.1 to exp(.3)= 1.35 fold ``average'' relative risks associated with
@@ -180,7 +179,7 @@ variance scale is stretched out giving a log-likelihood surface that is almost
 flat; a Newton-Raphson iteration starting at log(.2) may have log(.0001) as its
 next guess and get stuck there, never finding a true maximum that lies in the
 range of .01 to .05. 
-Finally, a few data sets have solutions with variance $>1$ for which a larger
+Finally, few data sets have solutions with variance $>1$ for which a larger
 starting value suffices.
 
 For the correlation we use 0 and .3.  Negative values are not on the list since
@@ -190,11 +189,10 @@ There also appears to be less of a need for multiple starting estimates.  Soluti
 rarely converge to the endpoints of the transformed range ($> .95$).
 
 <<coxmeFull-init>>= 
-initialize <- function(vinit, fixed, intercept, G, X,  sparse) {
+initialize <- function(vinit, fixed, intercept, G, X,  control) {
     ngroup <- min(length(G), ncol(G))
     nvar   <- min(length(X), ncol(X))  # a NULL or a nx0 matrix yields 0
-    vardefault <- c(.02, .1, .4, .8)^2
-    cordefault <- c(0, .3)
+    sparse <- control$sparse
     <<initmatch>>
     
     if (ngroup==0) {
@@ -209,7 +207,7 @@ initialize <- function(vinit, fixed, intercept, G, X,  sparse) {
             <<initialize-inits>>
             }
 
-        # Deal with intercepts
+        # Deal with random slope terms
         if (ngroup ==1) {
             <<coxmeFull-init-2>>
                 }
@@ -257,7 +255,7 @@ if (length(vinit) >0) {
       theta <- vinit
       }
   }
-else theta <- vardefault *.5 / mean(sqrt(apply(X,2,var)))
+else theta <- control$varinit *.5 / mean(sqrt(apply(X,2,var)))
   
 if (length(fixed) >0) {
     temp <- initmatch(xname[1], fixed)
@@ -372,7 +370,7 @@ variable to the first.
 gname <-  names(G)
 ntheta <- length(gname)
 itheta <- vector('list', length=ntheta)
-for (i in 1:ntheta) itheta[[i]] <- vardefault
+for (i in 1:ntheta) itheta[[i]] <- control$varinit
 if (ntheta >1) {
     for (i in 2:ntheta) gname[i] <- paste(gname[i-1], gname[i], sep='/')
     gname <- rev(gname) 
@@ -560,8 +558,7 @@ if (sum(block.sparse) <=1) {#make them all ordinary matrices
 else {
     if (!all(block.sparse)) { # Only a part is sparse
         tsize <- sum(temp@blocksize[1:sum(block.sparse)]) # sparse coefs
-        sparse <- 1:tsize
-        dense <- (1 + tsize):sum(nlevel)
+        sparse <- 1:tsize  #sparse portion, remainder is dense
         smat <- (varlist[[ngroup]])[1:sparse, 1:sparse]
         varlist[[ngroup]]
         rmat <- matrix(0, sum(tsize), nlevel[1])
@@ -688,16 +685,16 @@ Currently we do rescale the default starting estimates, thus if a user replaces
 $X$ with $2X$ the code will follow the same iteration path.
 <<coxmeFull-init-4>>=
 xvar  <- apply(X,2,var)
-
+cordefault <- control$corinit
 itheta <- list()
 is.variance <- NULL
 if (intercept) {
-    itheta <- c(itheta, list(vardefault))
-    for (i in 1:ncol(X)) itheta <- c(itheta, list(cordefault))  #correlations
+    itheta <- c(itheta, list(control$varinit))
+    for (i in 1:ncol(X)) itheta <- c(itheta, list(control$corinit)) #correlations
     is.variance <- c(TRUE, rep(FALSE, ncol(X)))
     }
 for (i in 1:ncol(X)) {
-    itheta <- c(itheta, list(vardefault/xvar))  #variance
+    itheta <- c(itheta, list(control$varinit/xvar))  #variance
     if (i < ncol(X)) {
         for (j in (i+1):ncol(X))  itheta <- c(itheta, list(cordefault))
         is.variance <- c(is.variance, TRUE, rep(FALSE, ncol(X)-i))
@@ -744,7 +741,6 @@ tmat <- diag(nvar+ intercept)  #dummy variance/cov matrix
 tmat <- tmat[row(tmat) >= col(tmat)]
 vindx <- which(tmat==1)  #indices of the variance terms within each group
 cindx <- which(tmat==0)  #indices of the correlations
-tempn <- length(tmat)   # number of parameters per level
 
 if (any(unlist(itheta[is.variance]) <=0)) 
         return(list(error="Variances must be >0"))

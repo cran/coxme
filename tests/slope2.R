@@ -53,6 +53,8 @@ aeq(as.matrix(fit2$var), as.matrix(fit2b$var), tol=1e-7)
 aeq(fixef(fit2), fixef(fit2b))
 
 # Check fit3
+# This takes two different paths to the solution, due to use of a
+#  slope coefficient rather than nested.  So results are a bit
 fit3 <- coxme(Surv(time, status) ~ age + trt + (1|inst) + (trt|inst),simdata,
               vinit=list(.1, .2))
 mat3 <- diag(rep(0:1, 9))
@@ -75,6 +77,8 @@ for (i in 1:9) {
 map[19,19] <- 1
 map[20,20] <- 1
 
-aeq(c(unlist(ranef(fit3))), c(map[1:18,1:18] %*% unlist(ranef(fit3b))))
+# Some of the random effects are very close to zero
+aeq(unlist(ranef(fit3)), c(map[1:18,1:18] %*% unlist(ranef(fit3b))),
+    tol=1e-7)
 aeq(as.matrix(fit3$var), map %*% as.matrix(fit3b$var) %*% t(map),
     tol=1e-7)

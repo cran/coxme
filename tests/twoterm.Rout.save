@@ -1,7 +1,6 @@
 
-R version 2.15.0 (2012-03-30)
-Copyright (C) 2012 The R Foundation for Statistical Computing
-ISBN 3-900051-07-0
+R Under development (unstable) (2015-03-01 r67921) -- "Unsuffered Consequences"
+Copyright (C) 2015 The R Foundation for Statistical Computing
 Platform: i686-pc-linux-gnu (32-bit)
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
@@ -18,18 +17,14 @@ Type 'q()' to quit R.
 
 > library(coxme)
 Loading required package: survival
-Loading required package: splines
 Loading required package: bdsmatrix
 
 Attaching package: 'bdsmatrix'
 
-The following object(s) are masked from 'package:base':
+The following object is masked from 'package:base':
 
     backsolve
 
-Loading required package: nlme
-Loading required package: Matrix
-Loading required package: lattice
 > aeq <- function(x,y) all.equal(as.vector(x), as.vector(y))
 > #
 > # Ensure that a call with two terms and a call with one term but zero
@@ -64,7 +59,7 @@ Loading required package: lattice
 > 
 > # Variance function that sets the parameters to a fixed value
 > myvar <- function(var=c(.25, .025, .078)) {
-+     initialize <- function(vinit, fixed, intercept, G, X, sparse) {
++     initialize <- function(vinit, fixed, intercept, G, X, sparse, ...) {
 +         imap <- as.matrix(as.numeric(G[[1]]))
 +         list(theta=NULL, imap=imap, X=X, xmap=imap+4,
 +              parms=list(theta=var, fixed=rep(TRUE,8),
@@ -106,7 +101,7 @@ Loading required package: lattice
 > fit1b <- coxme(Surv(dummy, futime, status) ~ trt1 + (1 | site) + (trt1|site), 
 +                smdata, ties=approx)
 > all.equal(ranef(fit1b), ranef(fit1))
-[1] "Component 2: Mean relative difference: 2.069803e-08"
+[1] TRUE
 > aeq(fit1$loglik, fit1b$loglik)
 [1] TRUE
 > 
@@ -119,4 +114,4 @@ Loading required package: lattice
 > 
 > proc.time()
    user  system elapsed 
-  2.496   0.052   2.546 
+  1.956   0.048   1.999 

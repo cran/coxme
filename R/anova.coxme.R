@@ -5,6 +5,8 @@
 #       fit1 <- coxph(Surv(t,s) ~ x1) 
 #       fit2 <- coxme(Surv(t,s) ~ x1 + (1|g));
 #        anova(fit1, fit)
+formula.coxme <- function(x, ...) x$call$formula
+
 anova.coxme <- function (object, ...,  test = 'Chisq') {
     if (!inherits(object, "coxme"))
         stop ("argument must be a cox model")
@@ -37,7 +39,6 @@ anova.coxme <- function (object, ...,  test = 'Chisq') {
     #
     # I have one Coxme model 
     #
-    varlist <- attr(object$terms, "variables")
     termlist<-attr(object$terms,"term.labels")
     
     specials <- attr(object$terms, "specials")
@@ -60,7 +61,7 @@ anova.coxme <- function (object, ...,  test = 'Chisq') {
     temp <- object$na.action
     if (!is.null(temp) && (class(temp) %in% c('exclude', 'omit')) &&
         length(temp) >0)  tsub <- -as.vector(temp)
-    else tsub <- 1:object$n    
+    else tsub <- 1:object$n[2]    
 
     fenv <- environment(object$terms)
     assign('tsub', tsub, envir=fenv)

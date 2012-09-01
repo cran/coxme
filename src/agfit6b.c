@@ -105,7 +105,6 @@ void agfit6b(  Sint *maxiter,  double *beta,
 	    c6.u[i] = -c6.temp[i];
 	    temp += c6.temp[i]*beta[i];
 	    }
-
 	newlik = -temp/2;  /* -(1/2) b' \sigma^{-1}b */
 	for (i=nf; i<nvar3; i++) c6.u[i] =0.0;
 

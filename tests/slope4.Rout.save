@@ -1,7 +1,6 @@
 
-R version 2.15.0 (2012-03-30)
-Copyright (C) 2012 The R Foundation for Statistical Computing
-ISBN 3-900051-07-0
+R Under development (unstable) (2015-03-01 r67921) -- "Unsuffered Consequences"
+Copyright (C) 2015 The R Foundation for Statistical Computing
 Platform: i686-pc-linux-gnu (32-bit)
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
@@ -37,18 +36,14 @@ Type 'q()' to quit R.
 > #
 > library(coxme)
 Loading required package: survival
-Loading required package: splines
 Loading required package: bdsmatrix
 
 Attaching package: 'bdsmatrix'
 
-The following object(s) are masked from 'package:base':
+The following object is masked from 'package:base':
 
     backsolve
 
-Loading required package: nlme
-Loading required package: Matrix
-Loading required package: lattice
 > options(na.action='na.exclude', contrasts=c('contr.treatment', 'contr.poly'))
 > aeq <- function(x,y, ...) all.equal(as.vector(x), as.vector(y), ...)
 > 
@@ -237,7 +232,7 @@ Loading required package: lattice
 > #  and matrices that are already in the right form
 > myvar <- function(varlist) {
 +     varlist <- varlist
-+     init <- function(vinit, fixed, intercept, G, X, sparse) {
++     init <- function(vinit, fixed, intercept, G, X, sparse, ...) {
 +         ngroup <- length(G)
 +         n <- nrow(G)
 +     
@@ -297,4 +292,4 @@ Loading required package: lattice
 > 
 > proc.time()
    user  system elapsed 
- 13.272   0.132  13.404 
+ 12.192   0.088  12.284 

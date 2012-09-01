@@ -4,13 +4,16 @@ models using the matrix code found in coxme.
 The reason for the program was entirely to check our arithmetic: it should
 get the same answers as lme.
 With more time and a larger test suite the routine is no longer 
-necessary for this purpose, however, it became popular with 
-users since it can fit a few models that lme cannot.
+necessary for this purpose, and I intended to retire it.
+However, it had became popular with 
+users since it can fit a few models that lme cannot, so now is a permanent
+part of the package.
 
 The orignal code was based on equation 2.14 of Pinheiro and Bates, the one
-they do not recommmend for computation, however it was restricted to
-a single random effect.  
-This version is more general.
+they do not recommmend for computation.
+This is a quite sensible formula if there is a \emph{single}
+random effect but it does not generalize well.
+This release follows the compuational strategy of lme much more closely.
 Note that a lot of the code below is a pure copy of the coxme code.
 
 <<lmekin>>=
@@ -18,12 +21,11 @@ lmekin <- function(formula,  data,
         weights, subset, na.action,
         control, varlist, vfixed, vinit, 
         method=c("ML", "REML"),
-        sparse=c(1,0),
-        x=FALSE, y=TRUE, 
+        x=FALSE, y=FALSE, model=FALSE,
         random, fixed, variance,  ...) {
 
     Call <- match.call()
-
+    sparse <- c(1,0)  #needed for compatablily with coxme code
     <<lme-process-standard-arguments>>
     <<decompose-lme-formula>>
     <<build-control-structures>>
@@ -110,7 +112,8 @@ Now for the actual compuation.
 We want to solve
 \begin{align*}
   y & = X\beta + Zb + \epsilon \\
-  b & \sim N(0, \sigma^2K)
+  b & \sim N(0, \sigma^2K) \\
+  \epsilon &\sim N(0, \sigma^2)
 \end{align*}
 where $K$ is the variance matrix returned by [[kfun]].
 If we know $K$, one way to solve this is as an augmented
@@ -436,6 +439,9 @@ Bundle the results together into an output object.
 This object differs from the old lme object, having both more and less
 information.  
 First we call the wrapup functions to retransform any parameters.
+At this point we also rescale the other variance components: the iteration
+used $\sigma^2 \Sigma$ as the variance matrix for the random effects,
+the user wants to think of $\Sigma$ as the product of these.
 <<lmekin-finish-up>>=
 
 newtheta <- random.coef <- list()  
@@ -445,7 +451,7 @@ bindex <- rep(1:nrandom, rowSums(ncoef)) # which b's to which terms
 for (i in 1:nrandom) {
     temp <- varlist[[i]]$wrapup(theta[sindex==i], rcoef[bindex==i], 
                                 vparm[[i]])
-    newtheta <- c(newtheta, temp$theta)
+    newtheta <- c(newtheta, lapply(temp$theta, function(x) x*sigma2))
     if (!is.list(temp$b)) {
         temp$b <- list(temp$b)
         names(temp$b) <- paste("Random", i, sep='')
@@ -491,6 +497,9 @@ if (!is.null(theta)) {
     fit$rvar <- mfit$hessian
     fit$iter <- mfit$counts
 }
+if (x) fit$x <- X
+if (y) fit$y <- Y
+if (model) fit$model <- m
 
 na.action <- attr(m, "na.action")
 if (length(na.action)) fit$na.action <- na.action

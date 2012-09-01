@@ -1,30 +1,28 @@
 \documentclass{article}
 \usepackage{noweb}
-\usepackage[pdftex]{graphicx}
 \usepackage{amsmath}
+\usepackage{graphicx}
 %\usepackage{times}
 \addtolength{\textwidth}{1in}
 \addtolength{\oddsidemargin}{-.5in}
 \setlength{\evensidemargin}{\oddsidemargin}
 
-\newcommand{\myfig}[1]{\resizebox{\textwidth}{!}
-                        {\includegraphics{figure/#1.pdf}}}
+\newcommand{\myfig}[1]{\includegraphics[width=\textwidth]{figure/#1.pdf}}
 
-\noweboptions{breakcode}
 \title{The \emph{coxme} function in S}
-\author{Terry Therneau // Mayo Clinic}
+\author{Terry Therneau \\ Mayo Clinic}
 
 \begin{document}
 \maketitle
 \tableofcontents
 \section{Introduction}
  The [[coxme]] function for mixed effects analyses based on a Cox
-proportional hazards model is one of the later additions to the
-[[survival]] library in S.
-\footnote{S is a statistical language, S-Plus and R are two different
-dialects of that language.  The functions described here work in both.}
-It is easily the most complex bit of code in the package from all points
-of view: mathematical, algorithmic, and S code wise.
+proportional hazards model is one of the later additions to my 
+survival functions in S
+\footnote{S is a statistical language with R and S-Plus being implementations
+ of that language.  I use R daily, but still refer to my code as S}.
+It is easily the most complex bit of code in this ecosystem from all points
+of view: mathematical, algorithmic, and R code wise.
 As such, it seems like a natural candidate for documentation and 
 maintainance using the literal programming model.  
 \begin{quotation}
@@ -40,20 +38,14 @@ better understood code.
 
 Note that almost all of the code uses a \emph{.Rnw} suffix, taking
 advantage of the very capable emacs modes that are part of the ESS pacakge.
-However, it is not processed by the [[Sweave]]
-package, which is designed for reports containing 
+However, it is not processed by the [[Sweave]] or [[knitR]]
+packages, both of which are designed for reports containing 
 \emph{exectuted} S code.   
-We currently can't use [[Sweave]] to manipulate our code, however,
-because it is not able to deal with unordered clauses.
-That is, for pedagogic reasons we often want to first give an overall
-outline of the code such as you find just below, and then flesh out 
-the individual parts (such as \emph{``decompose-formula''} later
-in the document.  Sweave currently fails with a ``not defined''
-error in such a case.
-We hope to eventually rectify this, but for now
-we use the
-standard noweb program to handle the files, with a Makefile to drive
-the process.
+In contrast this document makes use of the [[noweb]] package to document (weave)
+and generate the R source code (tangle) from a single file.
+The [[noweb]] weave command is considerably simpler than that for [[knitr]]
+since it does not have to evaluate code, while its tangle function is
+more complex.
 
 \section{Main program}
 The [[coxme]] code starts with a fairly standard argument list.
@@ -61,11 +53,11 @@ The [[coxme]] code starts with a fairly standard argument list.
 coxme <- function(formula,  data, 
 	weights, subset, na.action, init, 
 	control, ties= c("efron", "breslow"),
-	varlist, vfixed, vinit, sparse=c(50,.02),
+	varlist, vfixed, vinit,
 	x=FALSE, y=TRUE, 
         refine.n=0, random, fixed, variance,  ...) {
 
-    time0 <- proc.time()    #debugging line
+    #time0 <- proc.time()    #debugging line
     ties <- match.arg(ties)
     Call <- match.call()
 
@@ -74,7 +66,8 @@ coxme <- function(formula,  data,
     <<build-control-structures>>
     <<call-computation-routine>>
     <<finish-up>>
-@ %def coxme
+}
+@
 
 The arguments to the function are described below,
 omitting those that are identical to the [[coxph]] function.
@@ -88,11 +81,6 @@ be a list if there is only one random term.
 selected variance
 components.  
 \item[vinit] Initial value(s) for the variance components in the iteration.
-\item[sparse] The rule for deciding that the estimation of a term should be
-sparse.  
-\item[shortlabel] An option that applies to the creation of coefficient
-labels for nested effects.  See the [[strata]] function for more
-information.
 \item[refine.n] The number of Monte Carlo iterations to be done at the final
 iteration, to refine the Laplace approximation of the likelihood.
 \item[random, fixed, variance] These are included for backwards compatability 
@@ -100,7 +88,7 @@ with the first verion of coxme.  They may be removed at some
 point in the future.
 \end{description}
 
-The [[sparse]] option requires some further discussion.
+The [[sparse]] option has been moved to the coxme.control function.
 Cox model variance matrices are never sparse, but we have found that
 in one very particular instance we can ignore many off-diagonal
 elements.  This combined with the naturally sparse structure of

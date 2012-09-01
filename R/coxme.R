@@ -2,11 +2,11 @@
 coxme <- function(formula,  data, 
         weights, subset, na.action, init, 
         control, ties= c("efron", "breslow"),
-        varlist, vfixed, vinit, sparse=c(50,.02),
+        varlist, vfixed, vinit,
         x=FALSE, y=TRUE, 
         refine.n=0, random, fixed, variance,  ...) {
 
-    time0 <- proc.time()    #debugging line
+    #time0 <- proc.time()    #debugging line
     ties <- match.arg(ties)
     Call <- match.call()
 
@@ -87,6 +87,7 @@ coxme <- function(formula,  data,
     nrandom <- length(flist$random)
     if (nrandom ==0) stop("No random effects terms found")
     vparm <- vector('list', nrandom)
+    is.variance <- rep(TRUE, nrandom)  #penalty fcn returns a variance or penalty?
     ismat <- function (x) {
         inherits(x, "matrix") || inherits(x, "bdsmatrix") | inherits(x, "Matrix")
     }
@@ -250,11 +251,11 @@ coxme <- function(formula,  data,
         cmat <- getcmat(f2$fixed, m)
         groups <- getgroups(f2$group, m)
         ifun <- vfun$initialize(vinit[[i]], vfixed[[i]], intercept=f2$intercept, 
-                            groups, cmat, sparse)
+                            groups, cmat, control)
         if (!is.null(ifun$error)) 
             stop(paste("In random term ", i, ": ", ifun$error, sep=''))
         vparm[[i]] <- ifun$parms
-
+        if (!is.null(ifun$is.variance)) is.variance[i] <- ifun$is.variance
         itheta <- c(itheta, ifun$theta)
         ntheta[i] <- length(ifun$theta)
 
@@ -289,11 +290,14 @@ coxme <- function(formula,  data,
             ncoef[i,2] <- ncol(temp)
             zmat <- cbind(zmat, temp)
             }
-        } 
+    }
+    if (any(is.variance) & !all(is.variance))
+             stop("All variance terms must have the same is.variance setting") 
     fit <- coxme.fit(X, Y, strats, offset, init, control, weights=weights,
                      ties=ties, row.names(m),
                      fmat, zmat, varlist, vparm, 
-                     itheta, ntheta, ncoef, refine.n)
+                     itheta, ntheta, ncoef, refine.n,
+                     is.variance = any(is.variance))
     if (is.character(fit)) {
         fit <- list(fail=fit)
         oldClass(fit) <- 'coxme'
@@ -362,4 +366,4 @@ coxme <- function(formula,  data,
     names(fit$loglik) <- c("NULL", "Integrated", "Penalized")
     oldClass(fit) <- 'coxme'
     fit
-    }
+}

@@ -1,4 +1,5 @@
 \section{The model formula}
+\label{sect:formula}
 \subsection{Introduction}
 The first version of [[coxme]] followed the [[lme]] convention of
 using separate formulas for the fixed and random portions of the
@@ -39,7 +40,7 @@ random term.
 
 \begin{figure}
 \myfig{figtree1}
-\caption{The parse tree for [[y ~ x1 + (x3 + x4)* x2]].}
+\caption{The parse tree for \texttt{y \textasciitilde x1 + (x3 + x4)* x2}.}
 \label{figtree1}
 \end{figure}
 
@@ -49,7 +50,7 @@ It's tree is shown in figure \ref{figtree1}.
 At each level the figure lists the class of the object along with its name;
 to lessen crowding in the plot objects of class `name' do not have the class
 listed.
-The arguments to a call are the branched below each call.
+The arguments to a call are the branches below each call.
 A formula is structured like a call to the ``\verb2~2'' operator, and a
 parenthesised expression like a call with a single argument.
 
@@ -258,12 +259,12 @@ formula2 <- function(term) {
 @ 
 
 This routine looks for an intercept term - that's all.
-It's easiest to use the built in [[terms]] function for this,
+It would be easiest to use the built in [[terms]] function for this,
 since the intercept could be anywhere, and someone might have put
 in a -1 term which makes it trickier.   However, we can't: the   %'
 default S strategy would claim that [[(age+weight) |1)]] has an intercept.
-As an advantage, we know that there can be no operators except ``+''
-signs in the formula, or perhaps a ``-1''.  
+As an advantage, we know that there can be no operators except ``+'' or ``-''
+signs in the subformula at hand.  
 <<formula>>=
 findIntercept <- function(x) {
    if (is.call(x)) {
@@ -284,9 +285,9 @@ shows that it must be a pretty sound idea, given the extensive use
 that code has seen.)
 However, that line would recur into other functions, like [[logb(x5, 2)]]
 for instance.  
-For instance the following is legal but has a vertical bar we wish to
+The following is legal but has a vertical bar we wish to
 ignore: [[I(x1 | x2)]].
-I have never seen an \emph{actual} use of something like this,
+I have never seen an \emph{actual} use of such a phrase,
 but nevertheless I'm taking the paranoid  %'
 route.  
 
@@ -310,7 +311,7 @@ properly deal with vertical bars.
 Given a formula it returns a formula.
 We only recur on 4 standard operators to avoid looking inside functions. 
 An example would be [[~ age + I(x1 | x2) + (1|group)]]; we take care not to
-look inside the [[I()]], or an ns() call, etc.
+look inside the [[I()]] or an ns() call, etc.
 I'm not sure that replacing the bar inside the I() function will            %'
 cause any problems for model.frame; so I may be being overly cautious.
 The [[if length(x)]] statement below will most often arise from a formula 

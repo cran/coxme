@@ -1,5 +1,4 @@
 \name{coxme}
-\Rdversion{1.1}
 \alias{coxme}
 \title{
 Fit a mixed effects Cox model
@@ -11,8 +10,7 @@ Fit a mixed effects Cox model
 \usage{
 coxme(formula, data, weights, subset, na.action, init, control,
 ties = c("efron", "breslow"),
-varlist, vfixed, vinit,
-sparse = c(50, 0.02),  x = FALSE, y = TRUE,
+varlist, vfixed, vinit, x = FALSE, y = TRUE,
 refine.n = 0, random, fixed, variance, ...)
 }
 \arguments{
@@ -51,10 +49,6 @@ refine.n = 0, random, fixed, variance, ...)
     optional named list or vector giving suggested starting values for
     the variance.
 }
-  \item{sparse}{
-    rule for deciding sparsity of a random effect.  See the main
-    documentation for discussion of the issue.
-}
   \item{x}{
     if TRUE the X matrix (fixed effects) is included in the output object
 }
@@ -92,7 +86,8 @@ J Computational and Graphical Statistics, 12:156-175, 2003.
 Terry Therneau
 }
 \seealso{
-  \code{\link{coxmeFull}}, \code{\link{coxmeMlist}}
+  \code{\link{coxmeFull}}, \code{\link{coxmeMlist}},
+  \code{\link{coxme.object}}
 }
 \examples{
 \dontrun{# Random treatment effects per institution

@@ -75,6 +75,8 @@ The key of the algorithm is to note the pattern of numbers above: the
 indices for the diagonal are 0, 2, 2+3, 2+3+4, \ldots,
 (remember that the C indices start at zero),
 and the difference between rows is 1, 2, 3, \ldots.
+A bdsmatrix allows dimnames to be an integer, but a regular R matrix or Matrix
+object does not.
 <<bdsmatrix>>=
 setAs("bdsmatrix", "dsCMatrix", function(from) {
     if (length(from@blocks)==0) symmpart(Matrix(from@rmat))
@@ -89,7 +91,7 @@ setAs("bdsmatrix", "dsCMatrix", function(from) {
                  p = temp$p,
                  x=  temp$x,
                  Dim = from@Dim,
-                 Dimnames=from@Dimnames,
+                 Dimnames= lapply(from@Dimnames, as.character),
                  uplo='U',
                  factors=list())
     }

@@ -1,7 +1,6 @@
 
-R version 2.15.0 (2012-03-30)
-Copyright (C) 2012 The R Foundation for Statistical Computing
-ISBN 3-900051-07-0
+R Under development (unstable) (2015-03-01 r67921) -- "Unsuffered Consequences"
+Copyright (C) 2015 The R Foundation for Statistical Computing
 Platform: i686-pc-linux-gnu (32-bit)
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
@@ -18,18 +17,14 @@ Type 'q()' to quit R.
 
 > library(coxme)
 Loading required package: survival
-Loading required package: splines
 Loading required package: bdsmatrix
 
 Attaching package: 'bdsmatrix'
 
-The following object(s) are masked from 'package:base':
+The following object is masked from 'package:base':
 
     backsolve
 
-Loading required package: nlme
-Loading required package: Matrix
-Loading required package: lattice
 > options(na.action='na.exclude', contrasts=c('contr.treatment', 'contr.poly'))
 > aeq <- function(x,y, ...) all.equal(as.vector(x), as.vector(y), ...)
 > 
@@ -90,6 +85,8 @@ Loading required package: lattice
 [1] TRUE
 > 
 > # Check fit3
+> # This takes two different paths to the solution, due to use of a
+> #  slope coefficient rather than nested.  So results are a bit
 > fit3 <- coxme(Surv(time, status) ~ age + trt + (1|inst) + (trt|inst),simdata,
 +               vinit=list(.1, .2))
 > mat3 <- diag(rep(0:1, 9))
@@ -115,7 +112,9 @@ Loading required package: lattice
 > map[19,19] <- 1
 > map[20,20] <- 1
 > 
-> aeq(c(unlist(ranef(fit3))), c(map[1:18,1:18] %*% unlist(ranef(fit3b))))
+> # Some of the random effects are very close to zero
+> aeq(unlist(ranef(fit3)), c(map[1:18,1:18] %*% unlist(ranef(fit3b))),
++     tol=1e-7)
 [1] TRUE
 > aeq(as.matrix(fit3$var), map %*% as.matrix(fit3b$var) %*% t(map),
 +     tol=1e-7)
@@ -123,4 +122,4 @@ Loading required package: lattice
 > 
 > proc.time()
    user  system elapsed 
-  5.696   0.072   5.763 
+  5.048   0.044   5.093 

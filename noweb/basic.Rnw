@@ -1,5 +1,5 @@
 \subsection{Basic setup}
-The [[coxme]] code start its model handling with a nod to backwards
+The [[coxme]] code starts its model handling with a nod to backwards
 compatability.
 The argument list starts with the usual [[(formula, data, weights, ...]]
 set, but also allows [[random]] and [[fixed]] as optional arguments.
@@ -39,10 +39,6 @@ if (!missing(variance)) {
 @
 A formula in S is represented as a list of length 2 or 3, whose first element
 is as.name('~'), then the left hand side, if present, then the right hand side.
-%Note that if the random statement is exceptionally long, then the [[deparse]]
-%command will produce a vector of charcter strings, one for each line of 
-%output if this were echoed to the terminal;
-%the [[paste(... ,collapse)]] construction rejoins these.
 Note that the old version of coxme contains almost the same code, since
 to correctly handle missing values it needed to retrieve all the
 relevant variables, both fixed and random, with a single list.

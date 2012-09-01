@@ -35,10 +35,12 @@ The overall outline of the routine is
 \subsection{Penalty matrix}
 For the C code, the variance matrices of the individual
 random effects are glued together into one
-large bdsmatrix object $\Sigma$, [[kmat]] in the code; 
+large bdsmatrix object $\Sigma$, [[kmat]] in the code.
+When [[inverse=TRUE]] (the default)
 the inverse matrix $P = \Sigma^{-1}$ or 
-[[ikmat]] is the penalty matrix of the computation,
+[[ikmat]] is the penalty matrix of the computation, and
 is what is actually passed to C.
+When it is false the user is working directly with penalty matrices.
 (The first large use of this code was for family correlation, where
 $\Sigma$ is based on the \emph{kinship} matrix.  The variable names
 [[kmat]] = $\Sigma$, [[ikmat]] for the inverse and [[kfun]] for
@@ -328,19 +330,33 @@ is a character string giving the choice.
 logfun <- function(theta, varlist, vparm, kfun, ntheta, ncoef, 
                    init, fit0, iter, ofile) {
     gkmat <- gchol(kfun(theta, varlist, vparm, ntheta, ncoef))
-    ikmat <- solve(gkmat)  #inverse of kmat, which is the penalty
-    if (any(diag(ikmat) <=0)) { #Not an spd matrix
-        return(0)  # return a "worse than null" fit
+    if (is.variance) {
+        ikmat <- solve(gkmat)  #inverse of kmat, which is the penalty
+        if (any(diag(ikmat) <=0)) { #Not an spd matrix
+            return(0)  # return a "worse than null" fit
         }
-    fit <- .C(ofile,
-              iter= as.integer(c(iter,iter)),
-              beta = as.double(init),
-              loglik = double(2),
-              as.double(ikmat@blocks),
-              as.double(ikmat@rmat),
-              hdet = double(1))
-    ilik <- fit$loglik[2] -
-             .5*(sum(log(diag(gkmat))) + fit$hdet)
+        fit <- .C(ofile,
+                  iter= as.integer(c(iter,iter)),
+                  beta = as.double(init),
+                  loglik = double(2),
+                  as.double(ikmat@blocks),
+                  as.double(ikmat@rmat),
+                  hdet = double(1))
+        ilik <- fit$loglik[2] -
+            .5*(sum(log(diag(gkmat))) + fit$hdet)
+    }
+    else {
+        # The variance functions have returned the inverse matrix
+        fit <- .C(ofile,
+                  iter= as.integer(c(iter,iter)),
+                  beta = as.double(init),
+                  loglik = double(2),
+                  as.double(gkmat@blocks),
+                  as.double(gkmat@rmat),
+                  hdet = double(1))
+        ilik <- fit$loglik[2] +
+            .5*(sum(log(diag(gkmat))) - fit$hdet)
+    }
     -(1+ ilik - fit0)
     }
 @ 
@@ -472,8 +488,8 @@ routine would never be called directly by a user.
 coxme.fit <- function(x, y, strata, offset, ifixed, control,
 			weights, ties, rownames, 
 			imap, zmat, varlist, vparm, itheta,
-                        ntheta, ncoef, refine.n) {
-    time0 <- proc.time()
+                        ntheta, ncoef, refine.n, is.variance) {
+    #     time0 <- proc.time() #debugging line
     n <-  nrow(y)
     if (length(x) ==0) nvar <-0
     else nvar <- ncol(as.matrix(x))
@@ -505,7 +521,7 @@ orders the entry times.
 	status <- y[,3]
         ofile <-  'agfit6b'
         rfile <-  'agfit6d'
-        coxfitfun<- survival:::agreg.fit
+        coxfitfun<- agreg.fit
         }
     else {
 	if (length(strata) ==0) {
@@ -519,7 +535,7 @@ orders the entry times.
 	status <- y[,2]
         ofile <- 'coxfit6b' # fitting routine
         rfile <- 'coxfit6d' # refine.n routine
-        coxfitfun <- survival:::coxph.fit
+        coxfitfun <- coxph.fit
         }
 @ 
 
@@ -541,7 +557,10 @@ Note that if there are no covariates or only an offset term, then
 the returned log-likelihood is of length 1, not 2.
 a null model.
 <<null-fit>>=
-if (is.null(ifixed) ) ifixed <- rep(0., ncol(x))
+if (is.null(ifixed) ) {
+    ifixed <- rep(0., ncol(x))
+    if (length(ifixed) ==0) ifixed <- NULL  #agreg.fit didn't like numeric(0)
+}
 else if (length(ifixed) != ncol(x))
     stop("Wrong length for initial parameters of the fixed effects")
 
@@ -627,16 +646,28 @@ The phrase [[c(ikmat@rmat,0)]] makes sure something is passed when
 
 <<coxme-fit>>=
 gkmat <- gchol(kfun(theta, varlist, vparm, ntheta, ncoef))
-ikmat <- solve(gkmat)  #inverse of kmat, which is the penalty
-fit <- .C(ofile,
-          iter= as.integer(c(0, control$iter.max)),
-          beta = as.double(c(rep(0., npenal), fit0$coef*scale)),
-          loglik = double(2),
-          as.double(ikmat@blocks),
-          as.double(c(ikmat@rmat,0)),
-          hdet = double(1))
-ilik <- fit$loglik[2] -
-  .5*(sum(log(diag(gkmat))) + fit$hdet)
+if (is.variance) {
+    ikmat <- solve(gkmat)  #inverse of kmat, which is the penalty
+    fit <- .C(ofile,
+              iter= as.integer(c(0, control$iter.max)),
+              beta = as.double(c(rep(0., npenal), fit0$coef*scale)),
+              loglik = double(2),
+              as.double(ikmat@blocks),
+              as.double(c(ikmat@rmat,0)),
+              hdet = double(1))
+    ilik <- fit$loglik[2] -
+        .5*(sum(log(diag(gkmat))) + fit$hdet)
+} else {
+    fit <- .C(ofile,
+              iter= as.integer(c(0, control$iter.max)),
+              beta = as.double(c(rep(0., npenal), fit0$coef*scale)),
+              loglik = double(2),
+              as.double(gkmat@blocks),
+              as.double(c(gkmat@rmat,0)),
+              hdet = double(1))
+    ilik <- fit$loglik[2] +
+        .5*(sum(log(diag(gkmat))) - fit$hdet)
+}
 iter[2] <- iter[2] + fit$iter[2]
 @
               

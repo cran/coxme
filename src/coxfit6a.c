@@ -113,7 +113,6 @@ void coxfit6a(Sint *nused,      Sint *nvar,      Sint *ny,
 	      Sint *nblock,     Sint *bsize,     Sint *rsize,
 	      double *means,    double *xscale,  Sint *method,
 	      double *tolerch,  double *eps,     Sint *standard) { 
-S_EVALUATOR 
 
     int i,j,k, p1, p2, istrat;
     int nsparse, fsize;

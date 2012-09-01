@@ -12,8 +12,6 @@ fixed and random effects, respectively,
 with $X$ and $Z$ as the respective design matrices.
 
 It is now time to build $X$, the design matrix for the fixed effects.
-The
-of the model. 
 We first separate the model into random and fixed effects terms
 using the [[formula1]] function.
 As an argument it takes the model formula as given by the user
@@ -154,6 +152,7 @@ resolve the ambiguity.
 nrandom <- length(flist$random)
 if (nrandom ==0) stop("No random effects terms found")
 vparm <- vector('list', nrandom)
+is.variance <- rep(TRUE, nrandom)  #penalty fcn returns a variance or penalty?
 ismat <- function (x) {
     inherits(x, "matrix") || inherits(x, "bdsmatrix") | inherits(x, "Matrix")
 }
@@ -269,11 +268,11 @@ for (i in 1:nrandom) {
     cmat <- getcmat(f2$fixed, m)
     groups <- getgroups(f2$group, m)
     ifun <- vfun$initialize(vinit[[i]], vfixed[[i]], intercept=f2$intercept, 
-                        groups, cmat, sparse)
+                        groups, cmat, control)
     if (!is.null(ifun$error)) 
         stop(paste("In random term ", i, ": ", ifun$error, sep=''))
     vparm[[i]] <- ifun$parms
-
+    if (!is.null(ifun$is.variance)) is.variance[i] <- ifun$is.variance
     itheta <- c(itheta, ifun$theta)
     ntheta[i] <- length(ifun$theta)
 
@@ -308,7 +307,9 @@ for (i in 1:nrandom) {
         ncoef[i,2] <- ncol(temp)
         zmat <- cbind(zmat, temp)
         }
-    } 
+}
+if (any(is.variance) & !all(is.variance))
+         stop("All variance terms must have the same is.variance setting") 
 @ 
 
 The matrix $F$ holds the columns associated with intercept terms,
@@ -388,13 +389,14 @@ else {
 @ 
 
 The actual computation of the model is done in [[coxme.fit]].  
-This was separated from the main routine partly to leave the code in
+This was separated from the main routine to leave the code in
 managable chunks.
 <<call-computation-routine>>=
 fit <- coxme.fit(X, Y, strats, offset, init, control, weights=weights,
                  ties=ties, row.names(m),
                  fmat, zmat, varlist, vparm, 
-                 itheta, ntheta, ncoef, refine.n)
+                 itheta, ntheta, ncoef, refine.n,
+                 is.variance = any(is.variance))
 @  
 
 Then we finish up by packaging up the results for a user.
@@ -510,10 +512,9 @@ fit$ties <- ties
 names(fit$loglik) <- c("NULL", "Integrated", "Penalized")
 oldClass(fit) <- 'coxme'
 fit
-}
 @ 
 
-\subsection{Creating the $C$ and $F$ matrices}
+\subsection{Creating the C and F matrices}
 To create the columns for $F$ there are 3 steps.
 First we get the variables from the data frame, treating each of them
 as a factor.  This is then submitted to the

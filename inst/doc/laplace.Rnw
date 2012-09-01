@@ -127,7 +127,7 @@ For each trial value of $\theta$ in this search
 A necessary component of the solution in step 2 is calculation of
 $H$ and its generalized Cholesky decomposition $H=LDL'$, where $D$ is   %'
 diagonal and $L$ is lower triangular with $L_{ii}=1$.
-The determinant $|H|$ of the Hessian is the product of the diagonal
+The determinant $|H|$ is the product of the diagonal
 elements $D$.
 The Laplace approximation in step 3 is particularly convenient 
 for this problem since all the components are already in hand.
@@ -291,8 +291,8 @@ fit1b$refine
 
 This verifies what the figure implied: the Laplace approximation 
 is excellent for this data set.  
-A test for significance of the random effects will be based on
-the chisquare distribution with 2 degrees of freedom, comparing the
+The eventual test for significance of the random effects will be based on
+a chisquare distribution with 2 degrees of freedom, comparing the
 IPL for the fitted coxme model to the PL from a fixed effects coxph
 model with treatment alone.  This suggests that any error in the
 IPL that is less than 0.1 will be of little import.

@@ -191,7 +191,7 @@ fita <- coxme(Surv(time, status) ~ age + trt + (1+trt | inst), simdata)
 #  and matrices that are already in the right form
 myvar <- function(varlist) {
     varlist <- varlist
-    init <- function(vinit, fixed, intercept, G, X, sparse) {
+    init <- function(vinit, fixed, intercept, G, X, sparse, ...) {
         ngroup <- length(G)
         n <- nrow(G)
     

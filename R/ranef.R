@@ -24,4 +24,25 @@ vcov.coxme <- function(object, ...) {
     as.matrix(object$var[indx, indx])
 }
 
-vcov.lmekin <- vcov.coxme    
+vcov.lmekin <- vcov.coxme  
+logLik.coxme <- function(object, type=c("penalized", "integrated"), ...) {
+    type <- match.arg(type)
+    if (type=='penalized') {
+        out <- object$loglik[3] + object$penalty
+        attr(out, "df") <- object$df[2]
+        }
+    else {
+        out <- object$loglik[2]
+        attr(out, "df") <- object$df[1]
+        }
+    attr(out, "nobs") <- object$n[1]  #number of events
+    class(out) <- "logLik"
+    out
+}
+
+logLik.lmekin <- function(object, ...) {
+    out <- object$loglik[2]
+    attr(out, "df") <- object$df[1]
+    class(out) <- "logLik"
+    out
+    }

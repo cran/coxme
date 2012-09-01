@@ -5,7 +5,7 @@
 **  u   :    first derivative
 **  imatb  : sparse portion of the Cholesky
 **  imatr  : dense portion of the Cholesky
-**  hinvb  : sparse portion of the invers
+**  hinvb  : sparse portion of the inverse
 **  hinvr  : dense portion of the inverse
 **  rank   : rank of imat = number of non-zero diagonal elements
 **  ny     : on input: 2=Cox model, 3= (start, stop]

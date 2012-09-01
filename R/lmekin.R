@@ -3,12 +3,11 @@ lmekin <- function(formula,  data,
         weights, subset, na.action,
         control, varlist, vfixed, vinit, 
         method=c("ML", "REML"),
-        sparse=c(1,0),
-        x=FALSE, y=TRUE, 
+        x=FALSE, y=FALSE, model=FALSE,
         random, fixed, variance,  ...) {
 
     Call <- match.call()
-
+    sparse <- c(1,0)  #needed for compatablily with coxme code
     if (!missing(fixed)) {
         if (missing(formula)) {
             formula <- fixed
@@ -71,6 +70,7 @@ lmekin <- function(formula,  data,
     nrandom <- length(flist$random)
     if (nrandom ==0) stop("No random effects terms found")
     vparm <- vector('list', nrandom)
+    is.variance <- rep(TRUE, nrandom)  #penalty fcn returns a variance or penalty?
     ismat <- function (x) {
         inherits(x, "matrix") || inherits(x, "bdsmatrix") | inherits(x, "Matrix")
     }
@@ -234,11 +234,11 @@ lmekin <- function(formula,  data,
         cmat <- getcmat(f2$fixed, m)
         groups <- getgroups(f2$group, m)
         ifun <- vfun$initialize(vinit[[i]], vfixed[[i]], intercept=f2$intercept, 
-                            groups, cmat, sparse)
+                            groups, cmat, control)
         if (!is.null(ifun$error)) 
             stop(paste("In random term ", i, ": ", ifun$error, sep=''))
         vparm[[i]] <- ifun$parms
-
+        if (!is.null(ifun$is.variance)) is.variance[i] <- ifun$is.variance
         itheta <- c(itheta, ifun$theta)
         ntheta[i] <- length(ifun$theta)
 
@@ -273,7 +273,9 @@ lmekin <- function(formula,  data,
             ncoef[i,2] <- ncol(temp)
             zmat <- cbind(zmat, temp)
             }
-        } 
+    }
+    if (any(is.variance) & !all(is.variance))
+             stop("All variance terms must have the same is.variance setting") 
     kfun <- function(theta, varlist, vparm, ntheta, ncoef) {
         nrandom <- length(varlist)
         sindex <- rep(1:nrandom, ntheta) #which thetas to which terms
@@ -476,7 +478,7 @@ lmekin <- function(formula,  data,
     for (i in 1:nrandom) {
         temp <- varlist[[i]]$wrapup(theta[sindex==i], rcoef[bindex==i], 
                                     vparm[[i]])
-        newtheta <- c(newtheta, temp$theta)
+        newtheta <- c(newtheta, lapply(temp$theta, function(x) x*sigma2))
         if (!is.list(temp$b)) {
             temp$b <- list(temp$b)
             names(temp$b) <- paste("Random", i, sep='')
@@ -510,6 +512,9 @@ lmekin <- function(formula,  data,
         fit$rvar <- mfit$hessian
         fit$iter <- mfit$counts
     }
+    if (x) fit$x <- X
+    if (y) fit$y <- Y
+    if (model) fit$model <- m
 
     na.action <- attr(m, "na.action")
     if (length(na.action)) fit$na.action <- na.action

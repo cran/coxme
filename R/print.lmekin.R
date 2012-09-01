@@ -28,7 +28,6 @@ print.lmekin <- function(x, ...) {
     cat("\nRandom effects\n")
 
     random <- x$vcoef
-    gname <- names(random)
     nrow <-  sapply(random, 
                     function(x) if (is.matrix(x)) nrow(x) else length(x))
     maxcol <-max(sapply(random,
@@ -55,8 +54,8 @@ print.lmekin <- function(x, ...) {
             }
         indx <- indx + k
         }
-    temp1[,1] <- temp1[,1] * x$sigma
-    temp1[,2] <- temp1[,2] * x$sigma^2
+#    temp1[,1] <- temp1[,1] * x$sigma
+#    temp1[,2] <- temp1[,2] * x$sigma^2
     if (maxcol==3) temp1[,3] <- temp1[,3]*x$sigma
 
     indx <- cumsum(c(1, nrow))   # starting row of each effect

@@ -1,7 +1,6 @@
 
-R version 2.15.0 (2012-03-30)
-Copyright (C) 2012 The R Foundation for Statistical Computing
-ISBN 3-900051-07-0
+R Under development (unstable) (2015-03-01 r67921) -- "Unsuffered Consequences"
+Copyright (C) 2015 The R Foundation for Statistical Computing
 Platform: i686-pc-linux-gnu (32-bit)
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
@@ -18,18 +17,14 @@ Type 'q()' to quit R.
 
 > library(coxme)
 Loading required package: survival
-Loading required package: splines
 Loading required package: bdsmatrix
 
 Attaching package: 'bdsmatrix'
 
-The following object(s) are masked from 'package:base':
+The following object is masked from 'package:base':
 
     backsolve
 
-Loading required package: nlme
-Loading required package: Matrix
-Loading required package: lattice
 > aeq <- function(x, y, ...) all.equal(as.vector(x), as.vector(y), ...)
 > #
 > # A set of tests using user-defined matrices
@@ -39,6 +34,11 @@ Loading required package: lattice
 > fit1 <- lmekin(time ~ age + (1|ph.ecog), lung, vfixed=.5)
 > 
 > # Solve using the extended normal equations
+> #  The loglik is sum(y - hat y)^2 + b'P b/2 where the penalty matrix
+> #  is all zeros for the fixed effects, and A-inverse for the random
+> #  where b is the coefficient vector and A is the variance of the random effects
+> #  In our case A-inverse/2 = identity matrix.  
+> # If the variance is known this equation is easy to solve.
 > efit <- function(p, pmat) {
 +     tlung <- na.omit(lung[,c("time", "age", "ph.ecog")])
 +     cmat <- cbind(0,0, rbind(0,0, pmat))
@@ -56,7 +56,7 @@ Loading required package: lattice
 > # Now put in a more complex pmat (linear trend constraint)
 > # Since coxme is using the inverse variance as the penalty, we
 > #  need to give the inverse penalty as the "variance".
-> # (This is the lmekin test with non-zero off diagonal elements 
+> # (This is an lmekin test with non-zero off diagonal elements 
 > #  in the variance for the random effect, which is key to working
 > #  with kinship matrices.)
 > pmat <- matrix(c(2,-1,0,0, -1,2,-1,0, 0, -1, 2, -1, 0,0,-1,2),4)
@@ -70,6 +70,7 @@ Loading required package: lattice
 > aeq(unlist(ranef(fit2)), efit2[3:6])
 [1] TRUE
 > 
+> 
 > proc.time()
    user  system elapsed 
-  2.188   0.056   2.240 
+  1.596   0.048   1.634 

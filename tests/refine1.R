@@ -36,7 +36,7 @@ bmat <- matrix(rnorm(12*nsim), ncol=nsim)
 
 b2 <- backsolve(hmatb, bmat, upper=TRUE)
 htran <- as(hmatb, "dtCMatrix")  #verify that backsolve works correctly
-all.equal(as.matrix(htran %*% b2), bmat, check.attr=FALSE)
+all.equal(as.matrix(htran %*% b2), bmat, check.attributes=FALSE)
 
 b2 <- scale(b2, center=F, scale=sqrt(rchisq(nsim, df=chidf)/chidf))
 b3 <- b2 + unlist(ranef(fit1)) 

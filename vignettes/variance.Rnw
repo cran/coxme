@@ -83,7 +83,7 @@ It is responsible for 4 tasks:
     control parameters.
 \end{enumerate}
 
-Input arguments are
+The vinit routine will be called with the following arguments:
 \begin{itemize}
   \item vinit: a list or vector of initial estimates for the parameters, as 
     supplied by the user.  This may be empty.
@@ -154,7 +154,7 @@ geinit <- function(vinit, vfixed, intercept, G, X, sparse) {
     xmap <- matrix(rep(1:ncol(X), each=nrow(X)), nrow(X))
 
     list(theta=lapply(theta, log)[!which.fixed], imap=NULL, 
-         X=X, xmap=xmap,
+         X=X, xmap=xmap, penalty=FALSE,
          parms=list(theta=sapply(theta, function(x) x[1]), 
                     fixed=which.fixed,
                     xname=dimnames(X)[[2]], nvar=ncol(X)))
@@ -192,6 +192,9 @@ Finally we create the returned value, which is a list with components:
   \item X: the covariate matrix, possibly transformed, an example might be
     prescaling
   \item xmap: mapping between slopes and coefficients
+  \item penalty: if true the the generation routine below will return a 
+    penalty matrix for the
+    likelihood, if false (the default) it returns a variance matrix.
   \item parms: an arbitrary list which will be passed forward to the
     generate and wrapup routines, the main coxme code does not examine it.
 \end{itemize}
@@ -216,8 +219,9 @@ the coefficient number which multiplies the relevant covariate.
 The input arguments to this function are the current vector of
 iterated parameters, along with the list of parameters supplied by the
 init function.
-The result of the routine is the covariance matrix $V$ of the
-random effects for the term.
+The result of the routine is the penalty matrix $P$ for the logliklihood,
+the penalty is $b'Pb/2$, or covariance matrix $V$ of the
+random effects for the term, $V^{-1}=P$.
 
 One of the greatest challenges for this routine is to guarantee that the
 resulting matrix is positive definite to a sufficient degree that the

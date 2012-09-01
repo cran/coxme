@@ -8,7 +8,7 @@
 \SweaveOpts{keep.source=TRUE}
 %\VignetteIndexEntry{The lmekin function}
 %\VignetteDependes{nlme}
-%\VignetteDependes{coxme}
+%\VignetteDependes{coxme, nlme}
 
 \title{The lmekin function} 
 
@@ -69,6 +69,7 @@ data sets from Pinheiro and Bates.
 
 <<>>=
 library(coxme)
+require(nlme)
 fit1 <- lme(effort~Type, random= ~ 1|Subject,data=ergoStool,
              method="ML")
 fit2 <- lmekin(effort ~ Type + (1|Subject), data=ergoStool, 
@@ -146,15 +147,16 @@ plot(gped[9])
 
 gfit0 <- lm(age ~ q1, gdata)
 summary(gfit0)
-gfit1 <- lmekin(age ~ q1 + (1|id), data=gdata, varlist=kmat)
+gfit1 <- lmekin(age ~ q1 + (1|id), data=gdata, varlist=kmat*2)
 gfit1
 @ 
-
 The fit predicts age at onset using one quantitative trait along with a
 familial affect.
 The residual error is decreased when we include a familial effect, and the
 familial effects is substantial.
-
+The kinship matrix has diagonal elements of .5 (if there is no inbreeding);
+it is traditional to use a scaled version with elements of 1 in genetics
+models.
 
 A next step is to look at the effect of a particular locus.  
 The saved rda file also contains the results of a single SOLAR run at

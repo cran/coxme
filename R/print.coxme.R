@@ -81,7 +81,6 @@ print.coxme <- function(x, rcoef=FALSE, digits=options()$digits, ...) {
     cat("\nRandom effects\n")
 
     random <- VarCorr(x)
-    gname <- names(random)
     nrow <-  sapply(random, 
                     function(x) if (is.matrix(x)) nrow(x) else length(x))
     maxcol <-max(sapply(random,
@@ -126,3 +125,6 @@ print.coxme <- function(x, rcoef=FALSE, digits=options()$digits, ...) {
     print(temp, quote=F)
     invisible(x)
     }
+
+summary.coxme <- function(object, ...)
+    print.coxme(object, ...)

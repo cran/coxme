@@ -24,14 +24,24 @@ The matrices must have dimnames that match the levels of the
 grouping variable.  Much of the initialization work is to verify
 this, remove unneeded columns of the matrices (if for instance a
 subject has been dropped due to missing values), and reorder the
-grouping variable to match the resulting matrix. ( Sparse matrices
-cannot be arbitrarily reordered, so whatever label is on row 1 of the
-variance matrix needs to become the first level of the grouping
-variable, the second row the second, etc, during the computations.)
-For this reason I at present only allow terms of the form 
+grouping variable to match the resulting matrix. 
+We can't reorder sparse matrices willy-nilly without (potentially)
+creating disastrous consequences wrt losing sparsity in the
+matrix decompostion.
+So unlike most fitting routines that will create dummy coeffcients
+that are in the order of the levels of the grouping variable, we
+keep random effects in the order that they appear in the matrix $A$.  
+The [[imat]] vector contains the ``new'' covariate for each subject,
+e.g., the first person is in group 10, the next in group 2, etc.
+If there are multiple matrices, then the bsdmatrix.reconcile routine
+spends most of it's energy deciding if they can be put into a common
+row/column ordering.  
+(If designing this over, I'd likely have the routine just check ``are
+they the same'' and give an error message otherwise.)
+
+Because of this complexity, I only allow terms of the form
 [[(1|g)]] or [[(x|1)]] ($x$ could be a matrix or list of variables,
-$g$ could be nested), since I don't have a good scheme for naming  %'
-the $b$ vector when there are both covariates and grouping.
+$g$ could be nested) when a user-specified matrix is involved.
 
 Three checks on the matrices are commonly added.  
 \begin{enumerate}
@@ -83,13 +93,11 @@ them before calling the routine --- but only if they are exactly
 the right dimension.  This allows a user to give an unnamed matrix
 that is just exactly the right length.
 <<coxmeMlist-init>>=
-initialize <- function(vinit, fixed, intercept, G, X, sparse) {
-    vardefault <- c(.02, .1, .4, .8)^2
+initialize <- function(vinit, fixed, intercept, G, X, control) {
     ngroup <- min(length(G), ncol(G))
     nvar   <- min(length(X), ncol(X))  # a NULL or a nx0 matrix yields 0
     if (ngroup >0 & nvar >0)
         return(list(error="Mlist cannot have both covariates and grouping"))
-
     if (!is.list(varlist)) varlist <- list(varlist)  # a naked matrix
     noname <- all(sapply(varlist, function(x) is.null(dimnames(x)) || 
                       (is.null(dimnames(x)[[1]]) & is.null(dimnames(x)[[2]]))))
@@ -102,12 +110,12 @@ initialize <- function(vinit, fixed, intercept, G, X, sparse) {
         n <- nrow(G)
         G <- expand.nested(G)
         groups <- G[[ngroup]]  #drop all but the last
-        bname <- levels(groups)
-        if (noname) varlist <- lapply(varlist, namefun, bname)
+        if (noname) varlist <- lapply(varlist, namefun, levels(groups))
         if (any(sapply(varlist, function(x) inherits(x, "Matrix"))))
             varlist <- lapply(varlist, function(x) as(x, "bdsmatrix"))
-        tlist <- bdsmatrix.reconcile(varlist, bname)
-        imap <- matrix(match(groups, dimnames(tlist[[1]])[[1]]))
+        tlist <- bdsmatrix.reconcile(varlist, levels(groups))
+        bname <-  dimnames(tlist[[1]])[[1]]
+        imap <- matrix(match(groups, bname))
         xmap <- NULL
         rname <- names(G)[[ngroup]]
         }
@@ -148,7 +156,7 @@ singularity, so we fudge the default initial values.
 ntheta <- length(varlist)
 fudge <- seq(1, 1.5, length=ntheta)
 itheta <- vector('list', ntheta)
-for (i in 1:ntheta) itheta[[i]] <- vardefault * fudge[i]
+for (i in 1:ntheta) itheta[[i]] <- control$varinit * fudge[i]
 
 if (length(vinit) >0) {
     if (length(vinit) != ntheta)
@@ -186,8 +194,8 @@ for (j in 1:ntheta) {
         temp <- diag(kmat)
         if (any(temp==0))
             return(list(error="Diagonal of a variance matrix is zero"))
-        if (any(temp != temp[1])) 
-            warning("Diagonal of variance matrix is not constant")
+#        if (any(temp != temp[1])) 
+#            warning("Diagonal of variance matrix is not constant")
         if (max(temp) !=1) {
             kmat <- kmat/max(temp)
             tlist[[j]] <- kmat
@@ -236,7 +244,6 @@ wrapup <- function(newtheta, b, parms) {
         names(theta) <- vname
         theta <- list(theta)
         names(theta) <- parms$rname
-        
         names(b) <- parms$bname
         b <- list(b)
         names(b) <- parms$rname

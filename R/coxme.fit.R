@@ -2,8 +2,8 @@
 coxme.fit <- function(x, y, strata, offset, ifixed, control,
                         weights, ties, rownames, 
                         imap, zmat, varlist, vparm, itheta,
-                        ntheta, ncoef, refine.n) {
-    time0 <- proc.time()
+                        ntheta, ncoef, refine.n, is.variance) {
+    #     time0 <- proc.time() #debugging line
     n <-  nrow(y)
     if (length(x) ==0) nvar <-0
     else nvar <- ncol(as.matrix(x))
@@ -27,7 +27,7 @@ coxme.fit <- function(x, y, strata, offset, ifixed, control,
         status <- y[,3]
         ofile <-  'agfit6b'
         rfile <-  'agfit6d'
-        coxfitfun<- survival:::agreg.fit
+        coxfitfun<- agreg.fit
         }
     else {
         if (length(strata) ==0) {
@@ -41,9 +41,12 @@ coxme.fit <- function(x, y, strata, offset, ifixed, control,
         status <- y[,2]
         ofile <- 'coxfit6b' # fitting routine
         rfile <- 'coxfit6d' # refine.n routine
-        coxfitfun <- survival:::coxph.fit
+        coxfitfun <- coxph.fit
         }
-    if (is.null(ifixed) ) ifixed <- rep(0., ncol(x))
+    if (is.null(ifixed) ) {
+        ifixed <- rep(0., ncol(x))
+        if (length(ifixed) ==0) ifixed <- NULL  #agreg.fit didn't like numeric(0)
+    }
     else if (length(ifixed) != ncol(x))
         stop("Wrong length for initial parameters of the fixed effects")
 
@@ -176,19 +179,33 @@ coxme.fit <- function(x, y, strata, offset, ifixed, control,
     logfun <- function(theta, varlist, vparm, kfun, ntheta, ncoef, 
                        init, fit0, iter, ofile) {
         gkmat <- gchol(kfun(theta, varlist, vparm, ntheta, ncoef))
-        ikmat <- solve(gkmat)  #inverse of kmat, which is the penalty
-        if (any(diag(ikmat) <=0)) { #Not an spd matrix
-            return(0)  # return a "worse than null" fit
+        if (is.variance) {
+            ikmat <- solve(gkmat)  #inverse of kmat, which is the penalty
+            if (any(diag(ikmat) <=0)) { #Not an spd matrix
+                return(0)  # return a "worse than null" fit
             }
-        fit <- .C(ofile,
-                  iter= as.integer(c(iter,iter)),
-                  beta = as.double(init),
-                  loglik = double(2),
-                  as.double(ikmat@blocks),
-                  as.double(ikmat@rmat),
-                  hdet = double(1))
-        ilik <- fit$loglik[2] -
-                 .5*(sum(log(diag(gkmat))) + fit$hdet)
+            fit <- .C(ofile,
+                      iter= as.integer(c(iter,iter)),
+                      beta = as.double(init),
+                      loglik = double(2),
+                      as.double(ikmat@blocks),
+                      as.double(ikmat@rmat),
+                      hdet = double(1))
+            ilik <- fit$loglik[2] -
+                .5*(sum(log(diag(gkmat))) + fit$hdet)
+        }
+        else {
+            # The variance functions have returned the inverse matrix
+            fit <- .C(ofile,
+                      iter= as.integer(c(iter,iter)),
+                      beta = as.double(init),
+                      loglik = double(2),
+                      as.double(gkmat@blocks),
+                      as.double(gkmat@rmat),
+                      hdet = double(1))
+            ilik <- fit$loglik[2] +
+                .5*(sum(log(diag(gkmat))) - fit$hdet)
+        }
         -(1+ ilik - fit0)
         }
 
@@ -232,16 +249,28 @@ coxme.fit <- function(x, y, strata, offset, ifixed, control,
         iter <- mfit$counts[1] * c(1, control$inner.iter)
     }
     gkmat <- gchol(kfun(theta, varlist, vparm, ntheta, ncoef))
-    ikmat <- solve(gkmat)  #inverse of kmat, which is the penalty
-    fit <- .C(ofile,
-              iter= as.integer(c(0, control$iter.max)),
-              beta = as.double(c(rep(0., npenal), fit0$coef*scale)),
-              loglik = double(2),
-              as.double(ikmat@blocks),
-              as.double(c(ikmat@rmat,0)),
-              hdet = double(1))
-    ilik <- fit$loglik[2] -
-      .5*(sum(log(diag(gkmat))) + fit$hdet)
+    if (is.variance) {
+        ikmat <- solve(gkmat)  #inverse of kmat, which is the penalty
+        fit <- .C(ofile,
+                  iter= as.integer(c(0, control$iter.max)),
+                  beta = as.double(c(rep(0., npenal), fit0$coef*scale)),
+                  loglik = double(2),
+                  as.double(ikmat@blocks),
+                  as.double(c(ikmat@rmat,0)),
+                  hdet = double(1))
+        ilik <- fit$loglik[2] -
+            .5*(sum(log(diag(gkmat))) + fit$hdet)
+    } else {
+        fit <- .C(ofile,
+                  iter= as.integer(c(0, control$iter.max)),
+                  beta = as.double(c(rep(0., npenal), fit0$coef*scale)),
+                  loglik = double(2),
+                  as.double(gkmat@blocks),
+                  as.double(c(gkmat@rmat,0)),
+                  hdet = double(1))
+        ilik <- fit$loglik[2] +
+            .5*(sum(log(diag(gkmat))) - fit$hdet)
+    }
     iter[2] <- iter[2] + fit$iter[2]
     nfrail <- nrow(ikmat)  #total number of penalized terms
     nsparse <- sum(ikmat@blocksize)

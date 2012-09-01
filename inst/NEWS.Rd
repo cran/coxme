@@ -1,8 +1,49 @@
 \name{NEWS}
 \title{NEWS file for the coxme package}
+\section{Changes in version 2.2-4}{
+  \itemize{
+    \item Add logLik methods for coxme and lmekin.
+    
+    \item The lmekin function ignored the x=TRUE and y=TRUE arguments.
+    Simply an oversight.
+    
+    \item Modify the gwas example in the lmekin vignette to use 2*kmat;
+    rescaling kinship matrices is no longer automatic.  
+    
+    \item Remove the warning message for "diagonal is not constant" when
+    a variance matrix is rescaled.  It now almost always arises for a
+    kinship matrix where there is inbreeding, and in that case it is not
+    an error but does cause user confusion.  Earlier in coxme
+    development, when users built their own matrices by hand, it
+    often corresponded to a mistake and so was useful.
+
+    \item Change the output for lmekin.
+    Let the variance of the random effects be
+    A = sB where s= variance of the residuals, the internal calculations
+    are done in terms of B.  In the prior code the print routine
+    translated from B to A and the vcoef component was in terms of B.
+    Now the translation happens at the end of lmekin.
+    This is more handy for those who extract and use the components.
+    
+    \item When a variance matrix is supplied as the varlist argument,
+    the random effects are always produced in the same order as the
+    rows/columns of said matrix.  The labels attached to the vector,
+    however, were in the order of the variables in the data set.  Pointed
+    up in an example from M deAndrade.
+
+    \item Expose the grid search values used to find initial values for
+     the variance parameters, as part of the coxme.control and
+     lme.control functions.
+
+     \item Add a summary.coxme method.  It is currently identical to
+     print, but some users were getting confused by the results printed
+     out by the default summary function.
+}}
+
 \section{Changes in version 2.2-3}{
   \itemize{
-    \item A serious bug in lmekin was pointed out by Paola Sebastiani. It occurs
+    \item A serious bug in lmekin was pointed out by Paola Sebastiani.
+    It occurs
     whenever the variance matrix of the random effects is not diagonal:
     in one location I had an upper diagonal matrix U when I needed to
     have the lower diagonal form U'.  This affects all the genetics

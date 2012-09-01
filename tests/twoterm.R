@@ -33,7 +33,7 @@ smdata <- mkdata(150)  # 150 per site
 
 # Variance function that sets the parameters to a fixed value
 myvar <- function(var=c(.25, .025, .078)) {
-    initialize <- function(vinit, fixed, intercept, G, X, sparse) {
+    initialize <- function(vinit, fixed, intercept, G, X, sparse, ...) {
         imap <- as.matrix(as.numeric(G[[1]]))
         list(theta=NULL, imap=imap, X=X, xmap=imap+4,
              parms=list(theta=var, fixed=rep(TRUE,8),

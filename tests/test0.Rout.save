@@ -1,7 +1,6 @@
 
-R version 2.15.0 (2012-03-30)
-Copyright (C) 2012 The R Foundation for Statistical Computing
-ISBN 3-900051-07-0
+R Under development (unstable) (2015-03-01 r67921) -- "Unsuffered Consequences"
+Copyright (C) 2015 The R Foundation for Statistical Computing
 Platform: i686-pc-linux-gnu (32-bit)
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
@@ -18,18 +17,14 @@ Type 'q()' to quit R.
 
 > library(coxme)
 Loading required package: survival
-Loading required package: splines
 Loading required package: bdsmatrix
 
 Attaching package: 'bdsmatrix'
 
-The following object(s) are masked from 'package:base':
+The following object is masked from 'package:base':
 
     backsolve
 
-Loading required package: nlme
-Loading required package: Matrix
-Loading required package: lattice
 > options(na.action='na.exclude', contrasts=c('contr.treatment', 'contr.poly'))
 > aeq <- function(x,y) all.equal(as.vector(x), as.vector(y))
 > 
@@ -118,8 +113,8 @@ Loading required package: lattice
 +               ties='breslow', varlist=dmat)
 > aeq(tfit$u, tfit2$u)
 [1] TRUE
-> all.equal(as.matrix(tfit$var), as.matrix(tfit2$var))
-[1] "Attributes: < Length mismatch: comparison on first 1 components >"
+> aeq(as.matrix(tfit$var), as.matrix(tfit2$var))
+[1] TRUE
 > aeq(tfit$loglik, tfit2$loglik)
 [1] TRUE
 > 
@@ -148,6 +143,10 @@ Loading required package: lattice
 > aeq((solve(tfit$var))[3,3], ifun(pi,F))
 [1] TRUE
 > 
+> # Check out that the old style code -- use of a separate random statement --
+> #  still works.  One day we will drop this test and the backwards
+> #  compatablility.
+> #
 > tfit1 <- coxme(Surv(time, status) ~ x1 + x2, data=tdata0,
 +               random= ~1|grp, vfixed=.5, weight=wt, iter=0,
 +               ties='breslow', init=c(pi,0), sparse.calc=1)
@@ -161,6 +160,7 @@ In coxme(Surv(time, status) ~ x1 + x2, data = tdata0, random = ~1 |  :
 > aeq(tfit$loglik, tfit1$loglik)
 [1] TRUE
 > 
+> # Efron approximation
 > tfit <- coxme(Surv(time, status) ~ x1 + x2 + (1|grp), data=tdata0,
 +               vfixed=.5, weight=wt, iter=0,
 +               ties='efron', init=c(pi,0), sparse.calc=0)
@@ -260,4 +260,4 @@ In coxme(Surv(time, status) ~ x1 + x2, data = tdata0, random = ~1 |  :
 > 
 > proc.time()
    user  system elapsed 
-  2.220   0.052   2.276 
+  1.704   0.076   1.785 

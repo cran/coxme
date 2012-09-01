@@ -1,4 +1,3 @@
-# $Id: coxme.varcheck.s,v 1.7 2005/04/06 03:17:02 therneau Exp $
 # Do error checking and preprocssing of the variance list that was
 #  given as an argument to coxme.
 coxme.varcheck <- function(ncluster, varlist, n, gvars, groups, sparse,
@@ -111,8 +110,8 @@ coxme.varcheck <- function(ncluster, varlist, n, gvars, groups, sparse,
 				 stop("A variance matrix is not positive defininte")
 			    }
                         temp <- diag(kmat)
-                        if (any(temp != temp[1])) 
-                         warning("Diagonal of variance matrix is not constant")
+#                        if (any(temp != temp[1])) 
+#                        warning("Diagonal of variance matrix is not constant")
 			if (max(temp)==0)
 			    stop("Diagonal of a variance matrix is 0!")
                         if (max(temp) !=1) {
@@ -135,8 +134,8 @@ coxme.varcheck <- function(ncluster, varlist, n, gvars, groups, sparse,
 		if (pdcheck) tempg <- gchol(tlist)
 		if (rescale) {
 		    temp <- diag(tlist)
-		    if (any(temp != temp[1])) 
-			stop("Diagonal of kmat is not constant")
+#		    if (any(temp != temp[1])) 
+#			warning("Diagonal of kmat is not constant")
 		    if (temp[1] !=1)  tlist <- tlist/temp[1]
 		    if (pdcheck &&any(diag(tempg) <0))
 		      stop("A variance matrix is not non-negative definite")
