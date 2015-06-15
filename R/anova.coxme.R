@@ -1,10 +1,5 @@
 # 
 # The anova function for a coxme object
-# The anova.coxmelist function is in the survival library, so that the
-#  construct below will work:
-#       fit1 <- coxph(Surv(t,s) ~ x1) 
-#       fit2 <- coxme(Surv(t,s) ~ x1 + (1|g));
-#        anova(fit1, fit)
 formula.coxme <- function(x, ...) x$call$formula
 
 anova.coxme <- function (object, ...,  test = 'Chisq') {
@@ -32,8 +27,7 @@ anova.coxme <- function (object, ...,  test = 'Chisq') {
         if (!all(is.coxmodel | is.coxme))
             stop("All arguments must be Cox models")
         
-        return(survival:::anova.coxmelist(c(list(object), dotargs), 
-                                          test = test))
+        return(anova.coxmelist(c(list(object), dotargs), test = test))
     }
 
     #

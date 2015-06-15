@@ -55,7 +55,7 @@ which in turn depends
 a vector of parameters $\theta$.  
 
 For any fixed values of $\beta$ and $b$ we define the usual
-Cox parial likelihood PL (often labeled as a log-likelihood in
+Cox partial likelihood PL (often labeled as a log-likelihood in
 printouts) as
 \begin{equation*}
 \log[PL(\beta,b))] = \sum_{i=1}^n \int_0^\infty \left[
@@ -79,7 +79,7 @@ Ripatti and Palmgren \cite{Ripatti02} showed that the IPL can be
 treated as a likelihood, just as integrated full likelihoods
 can.  An ML estimate is obtained by joint maximization over
 $\beta$ and $\theta$.
-We can compare a nested set of random or fixed effects Cix
+We can compare a nested set of random or fixed effects Cox
 models using chi-square tests.
 
 The REML estimate is obtained by also integrating out the fixed effects
@@ -103,9 +103,8 @@ experience has shown it to be more reliable; the ML estimates are often
   too large.  
 By analogy, some have recommended using a REML estimate for the mixed
 effects Cox model.  However, either theoretical and practical evidence for
-its superiority is sparse.   For one particular estimation problem,
-Cortinas has evidence that the REML estimate has greater bias than
-the ML.  The coxme function currently only provides an ML estimate. 
+its superiority is sparse.  
+The coxme function currently only provides an ML estimate. 
  
 For a very simple fit such as
 <<eval=FALSE, echo=TRUE>>=
@@ -544,7 +543,7 @@ form was sent to their spouse or close relative.
   More to do for this section
   
 \section{Random slopes} 
-Yet to be written.
+
  
 
 \begin{thebibliography}{9}

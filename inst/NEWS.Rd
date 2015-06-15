@@ -1,5 +1,11 @@
 \name{NEWS}
 \title{NEWS file for the coxme package}
+\section{Changes in version 2.2.5}{
+  \itemize{
+    \item Move the anova.coxmelist function from the survival package to
+  coxme.
+ }}
+
 \section{Changes in version 2.2-4}{
   \itemize{
     \item Add logLik methods for coxme and lmekin.

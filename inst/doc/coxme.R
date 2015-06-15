@@ -1,13 +1,13 @@
 ### R code from vignette source 'coxme.Rnw'
 
 ###################################################
-### code chunk number 1: coxme.Rnw:111-112 (eval = FALSE)
+### code chunk number 1: coxme.Rnw:110-111 (eval = FALSE)
 ###################################################
 ## fit1 <- coxme(Surv(endage, cancer) ~ parity + (1| famid))
 
 
 ###################################################
-### code chunk number 2: coxme.Rnw:143-148
+### code chunk number 2: coxme.Rnw:142-147
 ###################################################
 library(coxme)
 stem(table(eortc$center))
@@ -17,26 +17,26 @@ efit2 <- coxme(Surv(y, uncens) ~ trt + (1|center), eortc)
 
 
 ###################################################
-### code chunk number 3: coxme.Rnw:154-155
+### code chunk number 3: coxme.Rnw:153-154
 ###################################################
 print(efit2)
 
 
 ###################################################
-### code chunk number 4: coxme.Rnw:242-243
+### code chunk number 4: coxme.Rnw:241-242
 ###################################################
 stem(exp(ranef(efit2)[[1]]))
 
 
 ###################################################
-### code chunk number 5: coxme.Rnw:248-250
+### code chunk number 5: coxme.Rnw:247-249
 ###################################################
 efit3 <- coxme(Surv(y, uncens) ~ trt + (1 | center/trt), eortc)
 efit3
 
 
 ###################################################
-### code chunk number 6: coxme.Rnw:293-310
+### code chunk number 6: coxme.Rnw:292-309
 ###################################################
 library(coxme)
 library(kinship2)
@@ -58,7 +58,7 @@ dev.off()
 
 
 ###################################################
-### code chunk number 7: coxme.Rnw:335-343
+### code chunk number 7: coxme.Rnw:334-342
 ###################################################
 minnfemale <- minnbreast[minnbreast$sex == 'F' & !is.na(minnbreast$sex),]
 fit0 <- coxph(Surv(endage, cancer) ~ I(parity>0), minnfemale,
@@ -71,7 +71,7 @@ print(fit1)
 
 
 ###################################################
-### code chunk number 8: coxme.Rnw:381-400
+### code chunk number 8: coxme.Rnw:380-399
 ###################################################
 ncancer <- with(minnfemale, tapply(cancer, famid, sum, na.rm=T))
 pyears <-  with(minnfemale, tapply(endage -18, famid, sum, na.rm=T))
@@ -95,7 +95,7 @@ print(round(temp,2))
 
 
 ###################################################
-### code chunk number 9: coxme.Rnw:424-437
+### code chunk number 9: coxme.Rnw:423-436
 ###################################################
 estvar <- seq(.2, .6, length=15)^2  #range of std values
 loglik <- double(15)
@@ -113,7 +113,7 @@ dev.off()
 
 
 ###################################################
-### code chunk number 10: coxme.Rnw:448-451
+### code chunk number 10: coxme.Rnw:447-450
 ###################################################
 temp <- 2*diff(fit1$loglik)[1] - loglik
 approx(temp[1:8], sqrt(estvar[1:8]), 3.84)$y
@@ -121,7 +121,7 @@ approx(temp[9:15], sqrt(estvar[9:15]), 3.84)$y
 
 
 ###################################################
-### code chunk number 11: coxme.Rnw:489-494
+### code chunk number 11: coxme.Rnw:488-493
 ###################################################
 kmat <- kinship(mped)
 fit2 <- coxme(Surv(endage, cancer) ~ I(parity>0) + (1|id),
