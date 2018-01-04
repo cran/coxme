@@ -25,17 +25,17 @@ SFUN =  coxme.R \
 CFUN =  bds_dsc.c
 
 RDIR = ../R
-all: all.pdf fun
+all: code.pdf fun
 
-all.pdf: all.tex noweb.sty
-	texi2dvi --pdf all.tex
+code.pdf: code.tex noweb.sty
+	pdflatex code.tex
 
 all.nw: $(PARTS)
 	cat $(PARTS) > all.nw
 	echo "\\end{document}" >> all.nw
 
-all.tex: all.nw
-	echo "require(noweb); noweave('all.nw', target='$(*F)', out='$@')" | $(R_HOME)/bin$(R_ARCH_BIN)/R --vanilla --slave
+code.tex: all.nw
+	echo "require(noweb); noweave('all.nw', target='$(*F)', out='$@')" | R --slave
 
 
 RFUN = $(SFUN:%=$(RDIR)/%)
@@ -49,14 +49,14 @@ $(CFUN2): all.nw
 
 %.R: 
 	echo "# Automatically generated from all.nw using noweb" > $@
-	echo "require(noweb); notangle('all.nw', target='$(*F)', out='zz')" | $(R_HOME)/bin$(R_ARCH_BIN)/R --vanilla --slave
+	echo "require(noweb); notangle('all.nw', target='$(*F)', out='zz')" | R --slave
 	cat zz >> $@
 	rm zz
 #	notangle -R$(*F) all.nw >> $@
 
 %.c: 
 	echo "/* Automatically generated from all.nw using noweb */" > $@
-	echo "require(noweb); notangle('all.nw', target='$(*F)', out='zz')" | $(R_HOME)/bin$(R_ARCH_BIN)/R --vanilla --slave
+	echo "require(noweb); notangle('all.nw', target='$(*F)', out='zz')" | R --slave
 	cat zz >> $@
 	rm zz
 

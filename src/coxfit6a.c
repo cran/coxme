@@ -306,14 +306,12 @@ void coxfit6a(Sint *nused,      Sint *nvar,      Sint *ny,
 	temp=0; temp2=0;
 	for (i=0; i<n; i++) temp += c6.x[j][i];
 	temp /= n;
-/*	temp =0;  /* debug*/
 	means[j-k] = temp;
 	for (i=0; i<n; i++) {
 	    c6.x[j][i] -= temp;
 	    temp2 += fabs(c6.x[j][i]);
 	    }
 	temp2 /= n;
-/*	temp2 =1;  /* debug */
 	xscale[j-k] = temp2;
 	for (i=0; i<n; i++) c6.x[j][i] /= temp2;
 	}

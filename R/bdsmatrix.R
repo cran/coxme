@@ -30,7 +30,7 @@ colTorow <- function(bs) {  #bs = size of block
 setAs("bdsmatrix", "dsCMatrix", function(from) {
     if (length(from@blocks)==0) symmpart(Matrix(from@rmat))
     else {
-        temp <- .Call("bds_dsc",
+        temp <- .Call(Cbds_dsc,
                       from@blocksize,
                       from@blocks,
                       from@rmat,

@@ -25,8 +25,7 @@ coxme.fit <- function(x, y, strata, offset, ifixed, control,
             newstrat  <- cumsum(table(strata))
             }
         status <- y[,3]
-        ofile <-  'agfit6b'
-        rfile <-  'agfit6d'
+        timedep <- TRUE
         coxfitfun<- agreg.fit
         }
     else {
@@ -39,8 +38,7 @@ coxme.fit <- function(x, y, strata, offset, ifixed, control,
             newstrat <-  cumsum(table(strata))
             }
         status <- y[,2]
-        ofile <- 'coxfit6b' # fitting routine
-        rfile <- 'coxfit6d' # refine.n routine
+        timedep <- FALSE
         coxfitfun <- coxph.fit
         }
     if (is.null(ifixed) ) {
@@ -151,7 +149,7 @@ coxme.fit <- function(x, y, strata, offset, ifixed, control,
         else control$sparse.calc <- 1
         }
 
-    ifit <- .C('coxfit6a', 
+    ifit <- .C(Ccoxfit6a, 
                    as.integer(n),
                    as.integer(nvar),
                    as.integer(ncol(y)),
@@ -177,34 +175,30 @@ coxme.fit <- function(x, y, strata, offset, ifixed, control,
     means   <- ifit$means
     scale   <- ifit$scale
     logfun <- function(theta, varlist, vparm, kfun, ntheta, ncoef, 
-                       init, fit0, iter, ofile) {
+                       init, fit0, iter, timedep) {
         gkmat <- gchol(kfun(theta, varlist, vparm, ntheta, ncoef))
         if (is.variance) {
             ikmat <- solve(gkmat)  #inverse of kmat, which is the penalty
             if (any(diag(ikmat) <=0)) { #Not an spd matrix
                 return(0)  # return a "worse than null" fit
             }
-            fit <- .C(ofile,
-                      iter= as.integer(c(iter,iter)),
-                      beta = as.double(init),
-                      loglik = double(2),
-                      as.double(ikmat@blocks),
-                      as.double(ikmat@rmat),
-                      hdet = double(1))
+            if (timedep) {
+                # start, stop data
+                fit <- .Call(Cagfit6b, as.integer(c(iter, iter)), 
+                             as.double(init), ikmat@blocks, ikmat@rmat)
+                }
+            else fit <- .Call(Ccoxfit6b, as.integer(c(iter, iter)), 
+                             as.double(init), ikmat@blocks, ikmat@rmat) 
             ilik <- fit$loglik[2] -
                 .5*(sum(log(diag(gkmat))) + fit$hdet)
         }
         else {
             # The variance functions have returned the inverse matrix
-            fit <- .C(ofile,
-                      iter= as.integer(c(iter,iter)),
-                      beta = as.double(init),
-                      loglik = double(2),
-                      as.double(gkmat@blocks),
-                      as.double(gkmat@rmat),
-                      hdet = double(1))
-            ilik <- fit$loglik[2] +
-                .5*(sum(log(diag(gkmat))) - fit$hdet)
+            if (timedep) fit <- .Call(Cagfit6b, c(iter, iter), as.double(init),
+                                      gkmat@blocks, gkmat@rmat)
+            else fit <- .Call(Ccoxfit6b, c(iter, iter), as.double(init),
+                              gkmat@blocks, gkmat@rmat)
+            ilik <- fit$loglik[2] + .5*(sum(log(diag(gkmat))) - fit$hdet)
         }
         -(1+ ilik - fit0)
         }
@@ -224,7 +218,7 @@ coxme.fit <- function(x, y, strata, offset, ifixed, control,
                 ll <- logfun(as.numeric(testvals[i,]), 
                              varlist, vparm, kfun, ntheta, ncoef, 
                              init=init.coef, loglik0, 
-                             control$inner.iter, ofile)
+                             control$inner.iter, timedep)
                 if (is.finite(ll)) {
                     #ll calc can fail if someone picks a very bad starting guess
                     if (is.null(bestlog) || ll < bestlog) {  
@@ -242,7 +236,7 @@ coxme.fit <- function(x, y, strata, offset, ifixed, control,
                        ntheta=ntheta, ncoef=ncoef, kfun=kfun,
                        init=init.coef, fit0= loglik0,
                        iter=control$inner.iter,
-                       ofile=ofile)
+                       timedep = timedep)
         mfit <- do.call('optim', c(list(par= theta, fn=logfun, gr=NULL), 
                                control$optpar, logpar))
         theta <- mfit$par
@@ -251,34 +245,34 @@ coxme.fit <- function(x, y, strata, offset, ifixed, control,
     gkmat <- gchol(kfun(theta, varlist, vparm, ntheta, ncoef))
     if (is.variance) {
         ikmat <- solve(gkmat)  #inverse of kmat, which is the penalty
-        fit <- .C(ofile,
-                  iter= as.integer(c(0, control$iter.max)),
-                  beta = as.double(c(rep(0., npenal), fit0$coef*scale)),
-                  loglik = double(2),
-                  as.double(ikmat@blocks),
-                  as.double(c(ikmat@rmat,0)),
-                  hdet = double(1))
+        if (timedep) 
+            fit <- .Call(Cagfit6b, iter= as.integer(c(0L, control$iter.max)),
+                         beta <- c(rep(0., npenal), fit0$coef*scale),
+                         ikmat@blocks, c(ikmat@rmat, 0.))
+        else fit <- .Call(Ccoxfit6b, iter= as.integer(c(0L, control$iter.max)),
+                          beta <- c(rep(0., npenal), fit0$coef*scale),
+                          ikmat@blocks, c(ikmat@rmat, 0.))
         ilik <- fit$loglik[2] -
             .5*(sum(log(diag(gkmat))) + fit$hdet)
     } else {
-        fit <- .C(ofile,
-                  iter= as.integer(c(0, control$iter.max)),
-                  beta = as.double(c(rep(0., npenal), fit0$coef*scale)),
-                  loglik = double(2),
-                  as.double(gkmat@blocks),
-                  as.double(c(gkmat@rmat,0)),
-                  hdet = double(1))
+        if (timedep) 
+            fit <- .Call(Cagfit6b, iter= as.integer(c(0L, control$iter.max)),
+                         beta <- c(rep(0., npenal), fit0$coef*scale),
+                         gkmat@blocks, c(gkmat@rmat, 0.))
+        else fit <- .Call(Ccoxfit6b, iter= as.integer(c(0L, control$iter.max)),
+                          beta <- c(rep(0., npenal), fit0$coef*scale),
+                          gkmat@blocks, c(gkmat@rmat, 0.))
         ilik <- fit$loglik[2] +
             .5*(sum(log(diag(gkmat))) - fit$hdet)
     }
-    iter[2] <- iter[2] + fit$iter[2]
+    iter[2] <- iter[2] + fit$iter
     nfrail <- nrow(ikmat)  #total number of penalized terms
     nsparse <- sum(ikmat@blocksize)
     nvar2  <- nvar + (nfrail - nsparse)  # total number of non-sparse coefs
     nvar3  <- as.integer(nvar + nfrail)  # total number of coefficients
     btot   <- length(ikmat@blocks)
 
-    fit3 <- .C('coxfit6c',
+    fit3 <- .C(Ccoxfit6c,
                    u    = double(nvar3),
                    h.b  = double(btot),
                    h.r  = double(nvar2*nvar3),
@@ -362,12 +356,15 @@ coxme.fit <- function(x, y, strata, offset, ifixed, control,
         }
         else stop("Unrecognized value for refine.method")
         
-        rfit <- .C(rfile,
-                   as.integer(refine.n),
-                   as.double(fit$beta),
-                   as.double(bmat2),
-                   loglik = double(refine.n), dup=FALSE)
-
+        if (timedep) rfit <- .C(Cagfit6d, as.integer(refine.n),
+                                as.double(fit$beta),
+                                as.double(bmat2),
+                                loglik = double(refine.n))
+        else rfit <- .C(Ccoxfit6d, as.integer(refine.n),
+                        as.double(fit$beta),
+                        as.double(bmat2),
+                        loglik = double(refine.n))
+     
         if (control$refine.method == "direct") {
             temp <- max(rfit$loglik)   #keep exp() in range
             errhat <- exp(rfit$loglik - temp) 
@@ -400,7 +397,7 @@ coxme.fit <- function(x, y, strata, offset, ifixed, control,
             r.correct <- c(correction= log(1+ mtemp), std=stemp/(1 +mtemp)) 
         }
     }
-    .C("coxfit6e", as.integer(ncol(y)))  #release memory
+    .C(Ccoxfit6e, as.integer(ncol(y)))  #release memory
     idf <- nvar + sum(ntheta)
     fcoef <- fit$beta[1:nfrail]
     penalty <- sum(fcoef * (ikmat %*% fcoef))/2

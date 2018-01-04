@@ -263,7 +263,7 @@ if (is.null(control$sparse.calc)) {
     else control$sparse.calc <- 1
     }
 
-ifit <- .C('coxfit6a', 
+ifit <- .C(Ccoxfit6a, 
                as.integer(n),
                as.integer(nvar),
                as.integer(ncol(y)),
@@ -324,38 +324,34 @@ which works well with the convergence criteria of
 the [[optim]] routine.
 
 There are actually two C routines [[coxfit6b]] and [[agfit6b]], for ordinary
-and (start,stop) survival data, respectively.  The [[ofile]] argument 
+and (start,stop) survival data, respectively.  The \code{timedep} argument 
 is a character string giving the choice.
 <<define-logfun>>=
 logfun <- function(theta, varlist, vparm, kfun, ntheta, ncoef, 
-                   init, fit0, iter, ofile) {
+                   init, fit0, iter, timedep) {
     gkmat <- gchol(kfun(theta, varlist, vparm, ntheta, ncoef))
     if (is.variance) {
         ikmat <- solve(gkmat)  #inverse of kmat, which is the penalty
         if (any(diag(ikmat) <=0)) { #Not an spd matrix
             return(0)  # return a "worse than null" fit
         }
-        fit <- .C(ofile,
-                  iter= as.integer(c(iter,iter)),
-                  beta = as.double(init),
-                  loglik = double(2),
-                  as.double(ikmat@blocks),
-                  as.double(ikmat@rmat),
-                  hdet = double(1))
+        if (timedep) {
+            # start, stop data
+            fit <- .Call(Cagfit6b, as.integer(c(iter, iter)), 
+                         as.double(init), ikmat@blocks, ikmat@rmat)
+            }
+        else fit <- .Call(Ccoxfit6b, as.integer(c(iter, iter)), 
+                         as.double(init), ikmat@blocks, ikmat@rmat) 
         ilik <- fit$loglik[2] -
             .5*(sum(log(diag(gkmat))) + fit$hdet)
     }
     else {
         # The variance functions have returned the inverse matrix
-        fit <- .C(ofile,
-                  iter= as.integer(c(iter,iter)),
-                  beta = as.double(init),
-                  loglik = double(2),
-                  as.double(gkmat@blocks),
-                  as.double(gkmat@rmat),
-                  hdet = double(1))
-        ilik <- fit$loglik[2] +
-            .5*(sum(log(diag(gkmat))) - fit$hdet)
+        if (timedep) fit <- .Call(Cagfit6b, c(iter, iter), as.double(init),
+                                  gkmat@blocks, gkmat@rmat)
+        else fit <- .Call(Ccoxfit6b, c(iter, iter), as.double(init),
+                          gkmat@blocks, gkmat@rmat)
+        ilik <- fit$loglik[2] + .5*(sum(log(diag(gkmat))) - fit$hdet)
     }
     -(1+ ilik - fit0)
     }
@@ -365,7 +361,7 @@ logfun <- function(theta, varlist, vparm, kfun, ntheta, ncoef,
 The third routine is used for iterative refinement of the Laplace
 estimate. The arguments in this case are
 \begin{description}
-  \item[rfile] either 'coxfit6d' or 'agfit6d'
+  \item[timedep] TRUE for start/stop data
   \item[beta] the final solution vector $(b, \beta)$, though only $\beta$
     is used.
   \item[bmat] matrix of trial values for the random coefficients.
@@ -416,12 +412,15 @@ if (refine.n > 0) {
     }
     else stop("Unrecognized value for refine.method")
     
-    rfit <- .C(rfile,
-               as.integer(refine.n),
-               as.double(fit$beta),
-               as.double(bmat2),
-               loglik = double(refine.n), dup=FALSE)
-
+    if (timedep) rfit <- .C(Cagfit6d, as.integer(refine.n),
+                            as.double(fit$beta),
+                            as.double(bmat2),
+                            loglik = double(refine.n))
+    else rfit <- .C(Ccoxfit6d, as.integer(refine.n),
+                    as.double(fit$beta),
+                    as.double(bmat2),
+                    loglik = double(refine.n))
+ 
     if (control$refine.method == "direct") {
         temp <- max(rfit$loglik)   #keep exp() in range
         errhat <- exp(rfit$loglik - temp) 
@@ -519,8 +518,7 @@ orders the entry times.
 	    newstrat  <- cumsum(table(strata))
 	    }
 	status <- y[,3]
-        ofile <-  'agfit6b'
-        rfile <-  'agfit6d'
+        timedep <- TRUE
         coxfitfun<- agreg.fit
         }
     else {
@@ -533,8 +531,7 @@ orders the entry times.
 	    newstrat <-  cumsum(table(strata))
 	    }
 	status <- y[,2]
-        ofile <- 'coxfit6b' # fitting routine
-        rfile <- 'coxfit6d' # refine.n routine
+        timedep <- FALSE
         coxfitfun <- coxph.fit
         }
 @ 
@@ -602,7 +599,7 @@ else {
         ll <- logfun(as.numeric(testvals[i,]), 
                      varlist, vparm, kfun, ntheta, ncoef, 
                      init=init.coef, loglik0, 
-                     control$inner.iter, ofile)
+                     control$inner.iter, timedep)
         if (is.finite(ll)) {
             #ll calc can fail if someone picks a very bad starting guess
             if (is.null(bestlog) || ll < bestlog) {  
@@ -621,7 +618,7 @@ In the code below
 which are defined in [[coxme.control]] and accessible for the user to
 change, and [[logpar]] is a list of parameters that will be needed by
 logfun.
-In R the ones that are simple copies such as [[ofile]] would not need to
+In R the ones that are simple copies such as \code{timedep} would not need to
 be included in the list since they are inherited with the environment,
 however, I prefer to make such hidden arguments explicit.
 <<coxme-fit>>=
@@ -630,7 +627,7 @@ however, I prefer to make such hidden arguments explicit.
                    ntheta=ntheta, ncoef=ncoef, kfun=kfun,
                    init=init.coef, fit0= loglik0,
                    iter=control$inner.iter,
-                   ofile=ofile)
+                   timedep = timedep)
     mfit <- do.call('optim', c(list(par= theta, fn=logfun, gr=NULL), 
                            control$optpar, logpar))
     theta <- mfit$par
@@ -648,27 +645,27 @@ The phrase [[c(ikmat@rmat,0)]] makes sure something is passed when
 gkmat <- gchol(kfun(theta, varlist, vparm, ntheta, ncoef))
 if (is.variance) {
     ikmat <- solve(gkmat)  #inverse of kmat, which is the penalty
-    fit <- .C(ofile,
-              iter= as.integer(c(0, control$iter.max)),
-              beta = as.double(c(rep(0., npenal), fit0$coef*scale)),
-              loglik = double(2),
-              as.double(ikmat@blocks),
-              as.double(c(ikmat@rmat,0)),
-              hdet = double(1))
+    if (timedep) 
+        fit <- .Call(Cagfit6b, iter= as.integer(c(0L, control$iter.max)),
+                     beta <- c(rep(0., npenal), fit0$coef*scale),
+                     ikmat@blocks, c(ikmat@rmat, 0.))
+    else fit <- .Call(Ccoxfit6b, iter= as.integer(c(0L, control$iter.max)),
+                      beta <- c(rep(0., npenal), fit0$coef*scale),
+                      ikmat@blocks, c(ikmat@rmat, 0.))
     ilik <- fit$loglik[2] -
         .5*(sum(log(diag(gkmat))) + fit$hdet)
 } else {
-    fit <- .C(ofile,
-              iter= as.integer(c(0, control$iter.max)),
-              beta = as.double(c(rep(0., npenal), fit0$coef*scale)),
-              loglik = double(2),
-              as.double(gkmat@blocks),
-              as.double(c(gkmat@rmat,0)),
-              hdet = double(1))
+    if (timedep) 
+        fit <- .Call(Cagfit6b, iter= as.integer(c(0L, control$iter.max)),
+                     beta <- c(rep(0., npenal), fit0$coef*scale),
+                     gkmat@blocks, c(gkmat@rmat, 0.))
+    else fit <- .Call(Ccoxfit6b, iter= as.integer(c(0L, control$iter.max)),
+                      beta <- c(rep(0., npenal), fit0$coef*scale),
+                      gkmat@blocks, c(gkmat@rmat, 0.))
     ilik <- fit$loglik[2] +
         .5*(sum(log(diag(gkmat))) - fit$hdet)
 }
-iter[2] <- iter[2] + fit$iter[2]
+iter[2] <- iter[2] + fit$iter
 @
               
 \subsection{Finishing up}
@@ -679,7 +676,7 @@ There are 6 tasks left to do
 <<coxme-rescale>>
 <<coxme-df>>
 <<refine>>  
-.C("coxfit6e", as.integer(ncol(y)))  #release memory
+.C(Ccoxfit6e, as.integer(ncol(y)))  #release memory
 <<create-output-list>>
 @ 
 
@@ -699,7 +696,7 @@ nvar2  <- nvar + (nfrail - nsparse)  # total number of non-sparse coefs
 nvar3  <- as.integer(nvar + nfrail)  # total number of coefficients
 btot   <- length(ikmat@blocks)
 
-fit3 <- .C('coxfit6c',
+fit3 <- .C(Ccoxfit6c,
                u    = double(nvar3),
                h.b  = double(btot),
                h.r  = double(nvar2*nvar3),

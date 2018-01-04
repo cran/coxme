@@ -22,7 +22,7 @@
     Cox model, there the random effect coefficients are a required part
     of the iteration process and so are always present in the final model.}
   \item{vcoef}{the variances of the random effects.  Use the
-    \code{VarCor} function to extract them.  These are always stored as a
+    \code{VarCorr} function to extract them.  These are always stored as a
     list with one member per random effect.}
   \item{variance}{the variance-covariance matrix of the coefficient
     vector, including both fixed and random terms.  The random effects

@@ -8,6 +8,7 @@
 \setlength{\evensidemargin}{\oddsidemargin}
 
 \newcommand{\myfig}[1]{\includegraphics[width=\textwidth]{figure/#1.pdf}}
+\newcommand{\code}[1]{\texttt{#1}}
 
 \title{The \emph{coxme} function in S}
 \author{Terry Therneau \\ Mayo Clinic}

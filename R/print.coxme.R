@@ -3,7 +3,7 @@ print.coxme <- function(x, rcoef=FALSE, digits=options()$digits, ...) {
     if (!is.null(x$call$data)) 
         cat("  Data:", deparse(x$call$data))
     if(!is.null(x$call$subset)) {
-        cat(";  Subset:", deparse(x$call$subset), "\n")
+        cat(";  Subset:", deparse(x$call$subset), sep="\n")
 	}
     else cat("\n")
 

@@ -10,7 +10,7 @@ Fit a mixed effects Cox model
 \usage{
 coxme(formula, data, weights, subset, na.action, init, control,
 ties = c("efron", "breslow"),
-varlist, vfixed, vinit, x = FALSE, y = TRUE,
+varlist, vfixed, vinit,  x = FALSE, y = TRUE,
 refine.n = 0, random, fixed, variance, ...)
 }
 \arguments{
@@ -48,7 +48,7 @@ refine.n = 0, random, fixed, variance, ...)
   \item{vinit}{
     optional named list or vector giving suggested starting values for
     the variance.
-}
+  }
   \item{x}{
     if TRUE the X matrix (fixed effects) is included in the output object
 }
@@ -90,12 +90,12 @@ Terry Therneau
   \code{\link{coxme.object}}
 }
 \examples{
-\dontrun{# Random treatment effects per institution
-fit1 <- coxme(Surv(pgtime, pgstat) ~ stage + trt + (1+trt |institution),
-               data=colon2)
-fit2 <- coxme(Surv(pgtime, pgstat) ~ stage + trt + (trt |institution) +
-              strata(institution), data=colon2)
-}
+# A non-significant institution effect
+fit1 <- coxph(Surv(time, status) ~ ph.ecog + age, data=lung,
+              subset=(!is.na(inst)))
+fit2 <- coxme(Surv(time, status) ~ ph.ecog + age + (1|inst), lung)
+anova(fit1, fit2)
+
 # Shrinkage effects (equivalent to ridge regression)
 temp <- with(lung, scale(cbind(age, wt.loss, meal.cal)))
 rfit <- coxme(Surv(time, status) ~ ph.ecog + (temp | 1), data=lung)

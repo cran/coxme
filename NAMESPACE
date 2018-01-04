@@ -1,6 +1,14 @@
-useDynLib(coxme)
+useDynLib(coxme, .registration = TRUE)
+  importFrom("stats", "anova", "as.formula", "coef", "formula",
+             "model.extract", "model.matrix", "model.offset",
+             "model.weights", "napredict", "naprint", "naresid",
+             "pchisq", "rchisq", "rnorm", "terms", "var")
 import(bdsmatrix, methods, survival)
 importFrom(nlme, ranef, random.effects, fixef, fixed.effects, VarCorr)
+importFrom("stats", "anova", "as.formula", "coef", "formula",
+             "model.extract", "model.matrix", "model.offset",
+             "model.weights", "napredict", "naprint", "naresid",
+             "pchisq", "rchisq", "rnorm", "terms", "var")
 import(Matrix) 
 export("coxme", "lmekin")
 export("coxmeFull", "coxmeMlist")

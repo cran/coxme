@@ -27,12 +27,10 @@ static void update(int j, int upper);
 static double dsum1, dsum2;
 static int nvar3;
 
-void coxfit6b(Sint *maxiter,  double *beta,
-	      double *loglik, double *pmatb,  double *pmatr,
-	      double *hdet) {
+SEXP coxfit6b(SEXP maxiter2,  SEXP beta2, SEXP pmatb2, SEXP pmatr2) {
     int i,j,k, l, p;
     int ii, istrat;
-    int     iter;
+    int    iter;
     int    nvar, nvar2, nvar2b;
     int    nfrail, ns, nfac;
     int    nfns;    /* number of factors that are not sparse */
@@ -45,8 +43,30 @@ void coxfit6b(Sint *maxiter,  double *beta,
     double  ndead;
     double  *dptr;
     double  *psum;
-    int     dohalf =0;
     int     ntie, ntie2, dup1, dup2;
+
+     /* returned objects */
+    SEXP loglik2, hdet2, iter2, rlist;
+    double *loglik, *hdet;
+    static const char *outnames[] = {"beta", "loglik", "hdet", "iter", ""};
+
+    /* copy the input args */
+    int  *maxiter;
+    double *beta, *pmatb, *pmatr;
+ 
+    maxiter = INTEGER(maxiter2);
+    pmatb   = REAL(pmatb2);
+    pmatr   = REAL(pmatr2);
+
+    /* create output args */
+    PROTECT(rlist = mkNamed(VECSXP, outnames));
+    beta2   = SET_VECTOR_ELT(rlist, 0, duplicate(beta2));
+    beta    = REAL(beta2);
+    loglik2 = SET_VECTOR_ELT(rlist, 1, allocVector(REALSXP, 2));
+    loglik  = REAL(loglik2);
+    hdet2   = SET_VECTOR_ELT(rlist, 2, allocVector(REALSXP, 1));
+    hdet    = REAL(hdet2);
+    iter2   = SET_VECTOR_ELT(rlist, 3, allocVector(INTSXP, 1));
 
     nfrail = c6.nfrail;    /* number of penalized coefficients */
     nvar   = c6.nvar;      /* number of unpenalized coefficients */
@@ -416,7 +436,6 @@ void coxfit6b(Sint *maxiter,  double *beta,
 	           fabs(1-(loglik[1]/newlik)) > c6.eps)  {  
 	    /*it is not converging ! */
 	    halving =1;
-	    dohalf = iter;
 	    for (i=0; i<nvar3; i++)
 		beta[i] = (c6.oldbeta[i] + beta[i]) /2; 
 	    continue;
@@ -462,10 +481,11 @@ void coxfit6b(Sint *maxiter,  double *beta,
 
     temp =0;
     for (i=0; i<nfrail; i++) temp += log(c6.imat[i][i]);
-    *hdet = temp;
-    if (maxiter[1] > iter) maxiter[1] = iter;
+    hdet[0] = temp;
+    INTEGER(iter2)[0] = iter;
     loglik[1] = newlik;
-    return;
+    UNPROTECT(1);
+    return(rlist);
     }
 
 static void update(int j, int upper) {

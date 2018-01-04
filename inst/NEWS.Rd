@@ -1,9 +1,28 @@
 \name{NEWS}
 \title{NEWS file for the coxme package}
+\section{Changes to version 2.2-7}{
+  \itemize{
+    \item Add the init.c routine and convert all .C and .Call to the
+    'registered routine' form.  No change in functionality, but it makes
+    the library more safe as it prevents accidental calls of the
+    routines by users.
+}}
+
+\section{Changes to version 2.2-6}{
+  \itemize{
+    \item Remove uses of a dup= argument from .C calls, per CRAN
+    notice (and per the help page for .C the argument is ignored anyway)
+    \item Repair mistake in logLik method
+    \item One "dontrun" example was based on data I cannot share;
+    replace it with one based on available data.
+    \item Add imports for routines used from the base package.
+
+}}
+
 \section{Changes in version 2.2.5}{
   \itemize{
     \item Move the anova.coxmelist function from the survival package to
-  coxme.
+    coxme.
  }}
 
 \section{Changes in version 2.2-4}{

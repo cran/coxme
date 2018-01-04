@@ -1,8 +1,7 @@
 
-R version 2.15.0 (2012-03-30)
-Copyright (C) 2012 The R Foundation for Statistical Computing
-ISBN 3-900051-07-0
-Platform: i686-pc-linux-gnu (32-bit)
+R Under development (unstable) (2017-12-21 r73937) -- "Unsuffered Consequences"
+Copyright (C) 2017 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu (64-bit)
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
 You are welcome to redistribute it under certain conditions.
@@ -18,7 +17,6 @@ Type 'q()' to quit R.
 
 > library(coxme)
 Loading required package: survival
-Loading required package: splines
 Loading required package: bdsmatrix
 
 Attaching package: 'bdsmatrix'
@@ -27,9 +25,6 @@ The following object is masked from 'package:base':
 
     backsolve
 
-Loading required package: nlme
-Loading required package: Matrix
-Loading required package: lattice
 > options(na.action='na.exclude', contrasts=c('contr.treatment', 'contr.poly'))
 > aeq <- function(x,y) all.equal(as.vector(x), as.vector(y))
 > 
@@ -74,9 +69,6 @@ Loading required package: lattice
 + 	      I(grp==1) + x1 + x2, data=tdata2, method='breslow',
 + 	      init=c(unlist(ranef(fit1)), fixef(fit1)),
 + 	      iter=0)
-Warning message:
-In coxph(Surv(t1, t2, status) ~ I(grp == 2) + I(grp == 3) + I(grp ==  :
-  X matrix deemed to be singular; variable 4
 > 
 > lp <- c(cbind(tdata2$x1, tdata2$x2) %*% fixef(fit1) + 
 + 	unlist(ranef(fit1))[c(4,1,2,3)[tdata2$grp]])
@@ -153,4 +145,4 @@ In coxph(Surv(t1, t2, status) ~ I(grp == 2) + I(grp == 3) + I(grp ==  :
 > 
 > proc.time()
    user  system elapsed 
-  2.044   0.056   2.103 
+  1.104   0.024   1.126 

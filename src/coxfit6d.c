@@ -23,9 +23,8 @@
 
 void coxfit6d(Sint *nrefine,  double *beta,  double *bhat,
 	      double *loglik) {
-    int i,j,k,p;
+    int i,j,p;
     int ii, istrat;
-    int     iter;
     int    nvar, nvar2;
     int    nfrail, ns, nfac;
     int    nfns;    /* number of factors that are not sparse */

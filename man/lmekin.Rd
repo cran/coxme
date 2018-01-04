@@ -99,6 +99,7 @@ random, fixed, variance, ...)
   fit1 <- lmekin(effort ~ Type + (1|Subject), data=ergoStool)
   \dontrun{
   # gives the same result
+  require(nlme)
   fit2 <- lme(effort ~ Type, data=ergoStool, random= ~1|Subject,
             method="ML")
   } 

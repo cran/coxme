@@ -28,12 +28,9 @@ static void update(int j, int upper);
 static double dsum1, dsum2;
 static int nvar3;
 
-void agfit6b(  Sint *maxiter,  double *beta,
-	       double *loglik, double *pmatb,  double *pmatr,
-	       double *hdet) {
+SEXP agfit6b(SEXP maxiter2,  SEXP beta2, SEXP pmatb2, SEXP pmatr2) {
     int i,j,k,l, p;
     int ii, istrat;
-    int iblock, blocksize;
     int     iter;
     int    nvar, nvar2;
     int    nf, ns, nfac;
@@ -47,11 +44,34 @@ void agfit6b(  Sint *maxiter,  double *beta,
     double  temp, temp2;
     double  newlik;
     double  d2, efron_wt;
-    double  method;
     double  ndead;
     double  *dptr;
     double  *psum;
 
+    /* returned objects */
+    SEXP loglik2, hdet2, iter2, rlist;
+    double *loglik, *hdet;
+    static const char *outnames[] = {"beta", "loglik", "hdet", "iter", ""};
+
+    /* copy the input args */
+    int  *maxiter;
+    double *beta, *pmatb, *pmatr;
+ 
+    maxiter = INTEGER(maxiter2);
+    pmatb   = REAL(pmatb2);
+    pmatr   = REAL(pmatr2);
+
+    /* create output args */
+    PROTECT(rlist = mkNamed(VECSXP, outnames));
+    beta2   = SET_VECTOR_ELT(rlist, 0, duplicate(beta2));
+    beta    = REAL(beta2);
+    loglik2 = SET_VECTOR_ELT(rlist, 1, allocVector(REALSXP, 2));
+    loglik  = REAL(loglik2);
+    hdet2   = SET_VECTOR_ELT(rlist, 2, allocVector(REALSXP, 1));
+    hdet    = REAL(hdet2);
+    iter2   = SET_VECTOR_ELT(rlist, 3, allocVector(INTSXP, 1));
+
+    /* set constants */
     nf   = c6.nfrail;  /* number of penalized terms (frailties) */
     nvar = c6.nvar;    /* number of "ordinary" covariates */
     ns   = c6.nsparse; /* number of sparse terms */
@@ -510,8 +530,9 @@ void agfit6b(  Sint *maxiter,  double *beta,
     for (i=0; i<nf; i++) temp += log(c6.imat[i][i]);
     *hdet = temp;
     loglik[1] = newlik;
-    if (maxiter[1] > iter) maxiter[1] = iter;
-    return;
+    INTEGER(iter2)[0] = iter;
+    UNPROTECT(1);
+    return(rlist);
     }
 
 static void update(int j, int upper) {
