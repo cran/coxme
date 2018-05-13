@@ -1,4 +1,4 @@
-# Automatically generated from all.nw using noweb
+# Automatically generated from the noweb directory
 coxme <- function(formula,  data, 
         weights, subset, na.action, init, 
         control, ties= c("efron", "breslow"),

@@ -1,4 +1,4 @@
-# Automatically generated from all.nw using noweb
+# Automatically generated from the noweb directory
 coxme.fit <- function(x, y, strata, offset, ifixed, control,
                         weights, ties, rownames, 
                         imap, zmat, varlist, vparm, itheta,

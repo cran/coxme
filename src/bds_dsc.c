@@ -1,4 +1,4 @@
-/* Automatically generated from all.nw using noweb */
+/* Automatically generated from the noweb directory */
 #include "coxmeS.h"
 SEXP bds_dsc(SEXP blocksize2,  SEXP blocks2,  SEXP rmat2,
              SEXP dim2) {

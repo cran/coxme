@@ -1,4 +1,4 @@
-# Automatically generated from all.nw using noweb
+# Automatically generated from the noweb directory
 # The objects that do the actual work (not much work)
 fixef.coxme <- function(object, ...)
     object$coefficients

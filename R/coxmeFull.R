@@ -1,4 +1,4 @@
-# Automatically generated from all.nw using noweb
+# Automatically generated from the noweb directory
 coxmeFull <- function(collapse=FALSE) {
     collapse <- collapse
     # Because of R's lexical scoping, the values of the options

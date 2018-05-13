@@ -1,4 +1,4 @@
-# Automatically generated from all.nw using noweb
+# Automatically generated from the noweb directory
 expand.nested <- function(x) {
     xname <- names(x)
     x[[1]] <- as.factor(x[[1]])[,drop=T]

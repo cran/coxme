@@ -1,4 +1,4 @@
-# Automatically generated from all.nw using noweb
+# Automatically generated from the noweb directory
 formula1 <- function(x) {
     if (class(x)=='formula') {  #top level call
         n <- length(x)  # 2 if there is no left hand side, 3 otherwise

@@ -1,4 +1,4 @@
-.PHONY: fun clean doc
+.PHONY: fun clean doc all
 
 PARTS = main.Rnw \
 	basic.Rnw \
@@ -30,12 +30,12 @@ all: code.pdf fun
 code.pdf: code.tex noweb.sty
 	pdflatex code.tex
 
-all.nw: $(PARTS)
-	cat $(PARTS) > all.nw
-	echo "\\end{document}" >> all.nw
+code.nw: $(PARTS)
+	cat $(PARTS) > code.nw
+	echo "\\end{document}" >> code.nw
 
-code.tex: all.nw
-	echo "require(noweb); noweave('all.nw', target='$(*F)', out='$@')" | R --slave
+code.tex: code.nw
+	echo "require(noweb); noweave('code.nw', target='$(*F)', out='$@')" | R --slave
 
 
 RFUN = $(SFUN:%=$(RDIR)/%)
@@ -43,26 +43,26 @@ CFUN2= $(CFUN:%=../src/%)
 
 fun: $(RFUN) $(CFUN2)
 
-$(RFUN) : all.nw 
-$(SFUN) : all.nw
-$(CFUN2): all.nw
+$(RFUN) : code.nw 
+$(SFUN) : code.nw
+$(CFUN2): code.nw
 
 %.R: 
-	echo "# Automatically generated from all.nw using noweb" > $@
-	echo "require(noweb); notangle('all.nw', target='$(*F)', out='zz')" | R --slave
+	echo "# Automatically generated from the noweb directory" > $@
+	echo "require(noweb); notangle('code.nw', target='$(*F)', out='zz')" | R --slave
 	cat zz >> $@
 	rm zz
-#	notangle -R$(*F) all.nw >> $@
+#	notangle -R$(*F) code.nw >> $@
 
 %.c: 
-	echo "/* Automatically generated from all.nw using noweb */" > $@
-	echo "require(noweb); notangle('all.nw', target='$(*F)', out='zz')" | R --slave
+	echo "/* Automatically generated from the noweb directory */" > $@
+	echo "require(noweb); notangle('code.nw', target='$(*F)', out='zz')" | R --slave
 	cat zz >> $@
 	rm zz
 
 clean:
-	-rm all.nw all.log all.aux all.toc all.tex all.pdf all.out
+	-rm code.nw code.log code.aux code.toc code.tex code.pdf code.out
 	-rm noweb.sty
 
 noweb.sty:
-	echo 'library(noweb); data(noweb); cat(noweb.sty, sep="\n", file="noweb.sty")' |  $(R_HOME)/bin$(R_ARCH_BIN)/R --vanilla --slave
+	echo 'library(noweb); data(noweb); cat(noweb.sty, sep="\n", file="noweb.sty")' |  R --vanilla --slave

@@ -1,5 +1,5 @@
 predict.coxme <- function(object, newdata, 
-                       type=c("lp", "risk")) {
+                       type=c("lp", "risk"), ...) {
     # This is an early skeleton of the function
     type <-match.arg(type)
     n <- object$n

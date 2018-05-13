@@ -96,7 +96,8 @@ SEXP agfit6b(SEXP maxiter2,  SEXP beta2, SEXP pmatb2, SEXP pmatr2) {
         }
 
     halving =0 ;             /* =1 when in the midst of "step halving" */
-    for (iter=0; iter<=maxiter[1]; iter++) {
+    loglik[0] =0; loglik[1]=0;  /* keep valgrind happy wrt a spurious warning */
+     for (iter=0; iter<=maxiter[1]; iter++) {
 	/*
 	** Initialize things to the value of the penalty,
 	**  using c6.temp as a temporary vector

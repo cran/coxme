@@ -1,4 +1,4 @@
-# Automatically generated from all.nw using noweb
+# Automatically generated from the noweb directory
 #Functions for moving back and forth between Matrix and bdsmatrix objects
 rowTocol <- function(bs) {  #bs = size of block
     n <- (bs*(bs+1))/2

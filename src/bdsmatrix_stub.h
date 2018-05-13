@@ -7,10 +7,10 @@
 
 /*
 ** Rdynload defines "typedef void * (*DL_FUNC) (), which is just right
-**  for almost all the routines.  Add two more.
+**  for almost all the routines that return void.  Add two more.
 */
-typedef int * (*INT_FUNC) ();
-typedef double* (*DBL_FUNC) ();
+typedef int (*INT_FUNC)();     /* pointer to a function which returns an int*/
+typedef double ** (*DBL_FUNC)(); /*pointer to function that returns **double */
 
 void bdsmatrix_prod2(int nblock,     int *bsize,     int nrow,
                      double *bmat,   double *rmat,  
@@ -38,7 +38,7 @@ int cholesky4(double **matrix,  int n,          int nblock,     int *bsize,
               double *bd,       double toler) {
     static INT_FUNC fun = NULL;
     if (fun==NULL) {
-	fun= R_GetCCallable("bdsmatrix", "cholesky4");
+	fun= (INT_FUNC) R_GetCCallable("bdsmatrix", "cholesky4");
  	if (fun==NULL) Rf_error("cannot find function 'cholesky4'");
 	}
     return(fun(matrix, n, nblock, bsize, bd, toler));
@@ -47,7 +47,7 @@ int cholesky4(double **matrix,  int n,          int nblock,     int *bsize,
 int cholesky5(double **matrix,  int n,          double toler){
     static INT_FUNC fun =NULL;
     if (fun==NULL) {
-	fun=  R_GetCCallable("bdsmatrix", "cholesky5");
+	fun=  (INT_FUNC) R_GetCCallable("bdsmatrix", "cholesky5");
   	if (fun==NULL) Rf_error("cannot find function 'cholesky5'");
 	}
     return(fun(matrix, n, toler));
@@ -79,7 +79,7 @@ void chsolve4(double **matrix,  int n,          int nblock,     int *bsize,
 	fun= R_GetCCallable("bdsmatrix", "chsolve4");
   	if (fun==NULL) Rf_error("cannot find function 'chsolve4'");
 	}
-     fun(matrix, n, nblock, bsize, bd, y, flag);
+    fun(matrix, n, nblock, bsize, bd, y, flag);
     }
 
 void chsolve5(double **matrix,  int n, double *y,int flag){
@@ -94,7 +94,7 @@ void chsolve5(double **matrix,  int n, double *y,int flag){
 double **dmatrix(double *array, int ncol, int nrow){
     static DBL_FUNC fun = NULL;
     if (fun==NULL) {
-	fun= R_GetCCallable("bdsmatrix", "dmatrix");
+	fun= (DBL_FUNC) R_GetCCallable("bdsmatrix", "dmatrix");
   	if (fun==NULL) Rf_error("cannot find function 'dmatrix'");
 	}
     return(fun(array, ncol, nrow));

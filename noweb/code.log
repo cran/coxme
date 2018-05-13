@@ -1,13 +1,15 @@
-This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013/Debian) (format=pdflatex 2014.8.11)  30 MAR 2015 08:52
+This is pdfTeX, Version 3.14159265-2.6-1.40.16 (TeX Live 2015/Debian) (preloaded format=pdflatex 2017.8.23)  18 APR 2018 13:31
 entering extended mode
  restricted \write18 enabled.
- file:line:error style messages enabled.
  %&-line parsing enabled.
-**\input ./all.tex
-(./all.tex (/usr/share/texlive/texmf-dist/tex/latex/base/article.cls
-Document Class: article 2007/10/19 v1.4h Standard LaTeX document class
+**code.tex
+(./code.tex
+LaTeX2e <2016/02/01>
+Babel <3.9q> and hyphenation patterns for 3 language(s) loaded.
+(/usr/share/texlive/texmf-dist/tex/latex/base/article.cls
+Document Class: article 2014/09/29 v1.4h Standard LaTeX document class
 (/usr/share/texlive/texmf-dist/tex/latex/base/size10.clo
-File: size10.clo 2007/10/19 v1.4h Standard LaTeX file (size option)
+File: size10.clo 2014/09/29 v1.4h Standard LaTeX file (size option)
 )
 \c@part=\count79
 \c@section=\count80
@@ -22,7 +24,7 @@ File: size10.clo 2007/10/19 v1.4h Standard LaTeX file (size option)
 \bibindent=\dimen102
 ) (./noweb.sty
 (/usr/share/texlive/texmf-dist/tex/latex/graphics/graphicx.sty
-Package: graphicx 1999/02/16 v1.0f Enhanced LaTeX Graphics (DPC,SPQR)
+Package: graphicx 2014/10/28 v1.0g Enhanced LaTeX Graphics (DPC,SPQR)
 
 (/home/therneau/texmf/tex/latex/springer-author/keyval.sty
 Package: keyval 1994/03/15 v1.07 sin cos tan (DPC)
@@ -30,15 +32,15 @@ Package: keyval 1994/02/01 v1.06 (DPC)
 Package: keyval 1994/02/01 v1.06 (DPC)
 )
 (/usr/share/texlive/texmf-dist/tex/latex/graphics/graphics.sty
-Package: graphics 2009/02/05 v1.0o Standard LaTeX Graphics (DPC,SPQR)
+Package: graphics 2016/01/03 v1.0q Standard LaTeX Graphics (DPC,SPQR)
 
 (/home/therneau/texmf/tex/latex/springer-author/trig.sty
 Package: trig 1994/03/15 v1.07 sin cos tan (DPC)
 )
-(/etc/texmf/tex/latex/config/graphics.cfg
-File: graphics.cfg 2009/08/28 v1.8 graphics configuration of TeX Live
+(/usr/share/texlive/texmf-dist/tex/latex/latexconfig/graphics.cfg
+File: graphics.cfg 2010/04/23 v1.9 graphics configuration of TeX Live
 )
-Package graphics Info: Driver file: pdftex.def on input line 91.
+Package graphics Info: Driver file: pdftex.def on input line 95.
 
 (/usr/share/texlive/texmf-dist/tex/latex/pdftex-def/pdftex.def
 File: pdftex.def 2011/05/27 v0.06d Graphics/color for pdfTeX
@@ -189,40 +191,40 @@ Package uniquecounter Info: New unique counter `rerunfilecheck' on input line 2
 \Hy@SectionHShift=\skip43
 ))
 (/usr/share/texlive/texmf-dist/tex/latex/amsmath/amsmath.sty
-Package: amsmath 2013/01/14 v2.14 AMS math features
+Package: amsmath 2016/03/03 v2.15a AMS math features
 \@mathmargin=\skip44
 
 For additional information on amsmath, use the `?' option.
 (/usr/share/texlive/texmf-dist/tex/latex/amsmath/amstext.sty
-Package: amstext 2000/06/29 v2.01
+Package: amstext 2000/06/29 v2.01 AMS text
 
 (/usr/share/texlive/texmf-dist/tex/latex/amsmath/amsgen.sty
-File: amsgen.sty 1999/11/30 v2.0
+File: amsgen.sty 1999/11/30 v2.0 generic functions
 \@emptytoks=\toks14
 \ex@=\dimen109
 ))
 (/usr/share/texlive/texmf-dist/tex/latex/amsmath/amsbsy.sty
-Package: amsbsy 1999/11/29 v1.2d
+Package: amsbsy 1999/11/29 v1.2d Bold Symbols
 \pmbraise@=\dimen110
 )
 (/usr/share/texlive/texmf-dist/tex/latex/amsmath/amsopn.sty
 Package: amsopn 1999/12/14 v2.01 operator names
 )
 \inf@bad=\count101
-LaTeX Info: Redefining \frac on input line 210.
+LaTeX Info: Redefining \frac on input line 199.
 \uproot@=\count102
 \leftroot@=\count103
-LaTeX Info: Redefining \overline on input line 306.
+LaTeX Info: Redefining \overline on input line 297.
 \classnum@=\count104
 \DOTSCASE@=\count105
-LaTeX Info: Redefining \ldots on input line 378.
-LaTeX Info: Redefining \dots on input line 381.
-LaTeX Info: Redefining \cdots on input line 466.
+LaTeX Info: Redefining \ldots on input line 394.
+LaTeX Info: Redefining \dots on input line 397.
+LaTeX Info: Redefining \cdots on input line 518.
 \Mathstrutbox@=\box27
 \strutbox@=\box28
 \big@size=\dimen111
-LaTeX Font Info:    Redeclaring font encoding OML on input line 566.
-LaTeX Font Info:    Redeclaring font encoding OMS on input line 567.
+LaTeX Font Info:    Redeclaring font encoding OML on input line 630.
+LaTeX Font Info:    Redeclaring font encoding OMS on input line 631.
 \macc@depth=\count106
 \c@MaxMatrixCols=\count107
 \dotsspace@=\muskip11
@@ -243,25 +245,25 @@ LaTeX Font Info:    Redeclaring font encoding OMS on input line 567.
 \multlinegap=\skip45
 \multlinetaggap=\skip46
 \mathdisplay@stack=\toks18
-LaTeX Info: Redefining \[ on input line 2665.
-LaTeX Info: Redefining \] on input line 2666.
-) (./all.aux)
-\openout1 = `all.aux'.
+LaTeX Info: Redefining \[ on input line 2735.
+LaTeX Info: Redefining \] on input line 2736.
+) (./code.aux)
+\openout1 = `code.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 15.
-LaTeX Font Info:    ... okay on input line 15.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 15.
-LaTeX Font Info:    ... okay on input line 15.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 15.
-LaTeX Font Info:    ... okay on input line 15.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 15.
-LaTeX Font Info:    ... okay on input line 15.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 15.
-LaTeX Font Info:    ... okay on input line 15.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 15.
-LaTeX Font Info:    ... okay on input line 15.
-LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 15.
-LaTeX Font Info:    ... okay on input line 15.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 16.
+LaTeX Font Info:    ... okay on input line 16.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 16.
+LaTeX Font Info:    ... okay on input line 16.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 16.
+LaTeX Font Info:    ... okay on input line 16.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 16.
+LaTeX Font Info:    ... okay on input line 16.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 16.
+LaTeX Font Info:    ... okay on input line 16.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 16.
+LaTeX Font Info:    ... okay on input line 16.
+LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 16.
+LaTeX Font Info:    ... okay on input line 16.
 
 (/usr/share/texlive/texmf-dist/tex/context/base/supp-pdf.mkii
 [Loading MPS to PDF converter (version 2006.09.02).]
@@ -276,10 +278,25 @@ LaTeX Font Info:    ... okay on input line 15.
 \MPnumerator=\count117
 \makeMPintoPDFobject=\count118
 \everyMPtoPDFconversion=\toks20
+) (/usr/share/texlive/texmf-dist/tex/latex/oberdiek/epstopdf-base.sty
+Package: epstopdf-base 2010/02/09 v2.5 Base part for package epstopdf
+
+(/usr/share/texlive/texmf-dist/tex/latex/oberdiek/grfext.sty
+Package: grfext 2010/08/19 v1.1 Manage graphics extensions (HO)
 )
+Package grfext Info: Graphics extension search list:
+(grfext)             [.png,.pdf,.jpg,.mps,.jpeg,.jbig2,.jb2,.PNG,.PDF,.JPG,.JPE
+G,.JBIG2,.JB2,.eps]
+(grfext)             \AppendGraphicsExtensions on input line 452.
+
+(/usr/share/texlive/texmf-dist/tex/latex/latexconfig/epstopdf-sys.cfg
+File: epstopdf-sys.cfg 2010/07/13 v1.3 Configuration of (r)epstopdf for TeX Liv
+e
+))
 \AtBeginShipoutBox=\box30
-Package hyperref Info: Link coloring OFF on input line 15.
- (/usr/share/texlive/texmf-dist/tex/latex/hyperref/nameref.sty
+Package hyperref Info: Link coloring OFF on input line 16.
+
+(/usr/share/texlive/texmf-dist/tex/latex/hyperref/nameref.sty
 Package: nameref 2012/10/27 v2.43 Cross-referencing by name of section
 
 (/usr/share/texlive/texmf-dist/tex/generic/oberdiek/gettitlestring.sty
@@ -287,63 +304,62 @@ Package: gettitlestring 2010/12/03 v1.4 Cleanup title references (HO)
 )
 \c@section@level=\count119
 )
-LaTeX Info: Redefining \ref on input line 15.
-LaTeX Info: Redefining \pageref on input line 15.
-LaTeX Info: Redefining \nameref on input line 15.
+LaTeX Info: Redefining \ref on input line 16.
+LaTeX Info: Redefining \pageref on input line 16.
+LaTeX Info: Redefining \nameref on input line 16.
 
-(./all.out) (./all.out)
+(./code.out) (./code.out)
 \@outlinefile=\write4
-\openout4 = `all.out'.
+\openout4 = `code.out'.
 
- (./all.toc)
+ (./code.toc)
 \tf@toc=\write5
-\openout5 = `all.toc'.
+\openout5 = `code.toc'.
 
  [1
 
 {/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}]
-LaTeX Font Info:    Try loading font information for OMS+cmtt on input line 59.
+LaTeX Font Info:    Try loading font information for OMS+cmtt on input line 60.
 
- (/usr/local/src/R-devel/share/texmf/tex/latex/omscmtt.fd
+ (/usr/share/texmf/tex/latex/R/tex/latex/omscmtt.fd
 File: omscmtt.fd 
 )
 LaTeX Font Info:    Font shape `OMS/cmtt/m/n' in size <10> not available
-(Font)              Font shape `OMS/cmsy/m/n' tried instead on input line 59.
- [2]
-[3]
-Overfull \hbox (5.24925pt too wide) in paragraph at lines 165--169
+(Font)              Font shape `OMS/cmsy/m/n' tried instead on input line 60.
+ [2] [3]
+Overfull \hbox (5.24925pt too wide) in paragraph at lines 166--170
 []\OT1/cmr/m/n/10 The pro-gram then ex-e-cutes a fairly stan-dard step to re-tr
 ieve the model frame. The model.frame
  []
 
 
-Overfull \hbox (66.64473pt too wide) in paragraph at lines 186--201
+Overfull \hbox (66.64473pt too wide) in paragraph at lines 187--202
 []\OT1/cmr/m/n/10 , and then re-move ar-gu-ments that they don't want []
  []
 
 [4] [5] [6]
-LaTeX Font Info:    Try loading font information for OMS+cmr on input line 339.
+LaTeX Font Info:    Try loading font information for OMS+cmr on input line 340.
 
  (/usr/share/texlive/texmf-dist/tex/latex/base/omscmr.fd
-File: omscmr.fd 1999/05/25 v2.5h Standard LaTeX font definitions
+File: omscmr.fd 2014/09/29 v2.5h Standard LaTeX font definitions
 )
 LaTeX Font Info:    Font shape `OMS/cmr/m/n' in size <10> not available
-(Font)              Font shape `OMS/cmsy/m/n' tried instead on input line 339.
+(Font)              Font shape `OMS/cmsy/m/n' tried instead on input line 340.
  [7]
 [8] [9] [10] [11] [12] [13] [14] [15] [16]
-<figure/figtree1.pdf, id=273, 505.89pt x 433.62pt>
+<figure/figtree1.pdf, id=275, 505.89pt x 433.62pt>
 File: figure/figtree1.pdf Graphic file (type pdf)
  <use figure/figtree1.pdf>
-Package pdftex.def Info: figure/figtree1.pdf used on input line 925.
+Package pdftex.def Info: figure/figtree1.pdf used on input line 926.
 (pdftex.def)             Requested size: 417.26999pt x 357.66814pt.
 
-Overfull \hbox (53.3581pt too wide) in paragraph at lines 930--939
+Overfull \hbox (53.3581pt too wide) in paragraph at lines 931--940
 []\OT1/cmr/m/n/10 Formulas in S are rep-re-sented as a parse tree. For ex-am-pl
 e, con-sider the for-mula [].
  []
 
 [17] [18 <./figure/figtree1.pdf>] [19] [20] [21]
-Overfull \hbox (22.92357pt too wide) in paragraph at lines 1114--1121
+Overfull \hbox (22.92357pt too wide) in paragraph at lines 1115--1122
 \OT1/cmr/m/n/10 given ran-dom part into up to four parts, for ex-am-ple the re-
 sult of []
  []
@@ -352,26 +368,26 @@ sult of []
 [37] [38] [39] [40] [41] [42] [43] [44] [45] [46] [47] [48] [49] [50] [51]
 [52] [53] [54] [55] [56] [57] [58] [59] [60] [61] [62] [63] [64] [65] [66]
 [67] [68] [69] [70] [71] [72] [73] [74] [75] [76] [77] [78] [79]
-Package atveryend Info: Empty hook `BeforeClearDocument' on input line 4310.
+Package atveryend Info: Empty hook `BeforeClearDocument' on input line 4308.
  [80]
-Package atveryend Info: Empty hook `AfterLastShipout' on input line 4310.
+Package atveryend Info: Empty hook `AfterLastShipout' on input line 4308.
 
-(./all.aux)
-Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 4310.
-Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 4310.
+(./code.aux)
+Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 4308.
+Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 4308.
 
-Package rerunfilecheck Info: File `all.out' has not changed.
+Package rerunfilecheck Info: File `code.out' has not changed.
 (rerunfilecheck)             Checksum: A9C7729FCDF068DDC248D6588535CBD5;1463.
-Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 4310.
+Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 4308.
  ) 
 Here is how much of TeX's memory you used:
- 6248 strings out of 495032
- 101886 string characters out of 6181718
- 176071 words of memory out of 5000000
- 9154 multiletter control sequences out of 15000+600000
+ 6366 strings out of 494953
+ 104112 string characters out of 6180977
+ 179930 words of memory out of 5000000
+ 9338 multiletter control sequences out of 15000+600000
  10052 words of font info for 37 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
- 36i,14n,28p,333b,468s stack positions out of 5000i,500n,10000p,200000b,80000s
+ 36i,14n,28p,325b,468s stack positions out of 5000i,500n,10000p,200000b,80000s
 </usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx10.pfb></us
 r/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx12.pfb></usr/shar
 e/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmex10.pfb></usr/share/texl
@@ -388,9 +404,10 @@ share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy7.pfb></usr/share/t
 exlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmti10.pfb></usr/share/texlive
 /texmf-dist/fonts/type1/public/amsfonts/cm/cmti12.pfb></usr/share/texlive/texmf
 -dist/fonts/type1/public/amsfonts/cm/cmtt10.pfb>
-Output written on all.pdf (80 pages, 508483 bytes).
+Output written on code.pdf (80 pages, 384200 bytes).
 PDF statistics:
- 921 PDF objects out of 1000 (max. 8388607)
+ 931 PDF objects out of 1000 (max. 8388607)
+ 822 compressed objects within 9 object streams
  258 named destinations out of 1000 (max. 500000)
  206 words of extra memory for PDF output out of 10000 (max. 10000000)
 

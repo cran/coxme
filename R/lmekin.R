@@ -1,4 +1,4 @@
-# Automatically generated from all.nw using noweb
+# Automatically generated from the noweb directory
 lmekin <- function(formula,  data, 
         weights, subset, na.action,
         control, varlist, vfixed, vinit, 
@@ -358,13 +358,13 @@ lmekin <- function(formula,  data,
                   factors=list())
     if (length(zmat) >0)  {
         # there were random slopes as well
-        zstar1 <- cBind(zstar1, as(Matrix(zmat), "dgCMatrix"))
+        zstar1 <- cbind(zstar1, as(Matrix(zmat), "dgCMatrix"))
     }
 
     nfrail <- ncol(zstar1)
     nvar <- ncol(X)
     if (nvar == 0)  xstar <- NULL  #model with no covariates
-    else xstar <- rBind(Matrix(X, sparse=FALSE),
+    else xstar <- rbind(Matrix(X, sparse=FALSE),
                         matrix(0., nrow=nfrail, ncol=ncol(X)))
     ystar <- c(Y, rep(0.0, nfrail))
     mydiag <- function(x) {
@@ -375,7 +375,7 @@ lmekin <- function(formula,  data,
     logfun <- function(theta, best=0) {
         vmat <- kfun(theta, varlist, vparm, ntheta, ncoef)
         Delta <- t(solve(chol(as(vmat, "dsCMatrix"), pivot=FALSE)))
-        zstar <- rBind(zstar1, Delta)
+        zstar <- rbind(zstar1, Delta)
         qr1 <- qr(zstar)
         dd <- mydiag(qr1) 
         cvec <- as.vector(qr.qty(qr1, ystar))[-(1:nfrail)]  #residual part
@@ -421,7 +421,7 @@ lmekin <- function(formula,  data,
     }
     vmat <-  kfun(theta, varlist, vparm, ntheta, ncoef)
     Delta <- t(solve(chol(as(vmat, "dsCMatrix"), pivot=FALSE)))
-    zstar <- rBind(zstar1, Delta)
+    zstar <- rbind(zstar1, Delta)
     qr1 <- qr(zstar)
     dd <- mydiag(qr1)
     ctemp <- as.vector(qr.qty(qr1, ystar))
@@ -460,7 +460,7 @@ lmekin <- function(formula,  data,
     # Debugging code, set the argument to TRUE only during testing
     if (FALSE) {
         # Compute the alternate way (assumes limited reordering)
-        zx <- cBind(zstar, as(xstar, class(zstar)))
+        zx <- cbind(zstar, as(xstar, class(zstar)))
         qr3 <- qr(zx)
         cvec3 <- qr.qty(qr3, ystar)[-(1:(nvar+nfrail))]
         if (method=="ML")  dd3 <- (diag(myqrr(qr3)))[1:nfrail]

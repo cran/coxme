@@ -1,5 +1,24 @@
 \name{NEWS}
 \title{NEWS file for the coxme package}
+\section{Changes to version 2.2-10}{
+  \itemize{
+    \item Add "loglik[1]=0" lines to two routines, to assauge valgrind's
+    fear about an uninitialized variable.
+    \item Further tune up the declarations in bdsmatrix_stub.h, to
+    avoid complaints from -Wall compilations.
+}}
+
+\section{Changes to version 2.2-9}{
+  \itemize{
+    \item Change cBind to cbind, per CRAN request
+}}
+
+\section{Changes to version 2.2-8}{
+  \itemize{
+    \item Add predict.coxme to the NAMESPACE file; the oversight was
+    pointed out by Patrick Breheny.
+}}
+
 \section{Changes to version 2.2-7}{
   \itemize{
     \item Add the init.c routine and convert all .C and .Call to the

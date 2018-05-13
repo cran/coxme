@@ -1,4 +1,4 @@
-# Automatically generated from all.nw using noweb
+# Automatically generated from the noweb directory
 coxmeMlist <- function(varlist, rescale=FALSE, pdcheck=TRUE,  positive=TRUE) {
     # Because of environments, the init function will inherit the
     #  four variables below 
