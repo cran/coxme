@@ -72,7 +72,7 @@ log partial likelihood $PL(\hat\beta, \hat b)$.
 
 However, the IPL \eqref{ipl} above is not a tractable integral.
 The key step in its computation is
-eplacement of the log penalized partial
+replacement of the log penalized partial
 likelihood $LPPL$ with a second order Taylor series about its value
 at the maximum of the function
 \begin{align*}
@@ -336,7 +336,7 @@ $\beta_0$ is normally left out of the penalty.
 
 The penalty can also be viewed as imposing a Gaussian prior
 on the coefficients. 
-Similarly, we can use coxme to perform ridge regression Cox models.
+Thus, we can use coxme to perform ridge regression Cox models.
 We will use an advanced lung cancer data set as our example, it is
 part of the surival package.
 <<>>=
@@ -346,7 +346,7 @@ lfit2 <- coxme(Surv(time, status) ~ age + (ph.ecog |1) +
 lfit2$refine
 @ 
 Again, the Laplace transform works very well.  
-By default the random coefficients $b$ are no included in the
+By default the random coefficients $b$ are not included in the
 printout, but they can be requested with the \texttt{rcoef}
 option.
 <<>>= 
@@ -356,12 +356,11 @@ signif(rbind(coef(lfit1),
              c(fixef(lfit2), unlist(ranef(lfit2)))),2)
 @ 
 
-Again, the Laplace transform works very well.  
 Contrasting the coefficients between the shrunken and the regular
 Cox models, the coeffienct for weight loss has been reduced over 10
 fold while that for ECOG performace score has changed only a little.
 Weight loss is a weak predictor in this data set and shrinking it
-has only a small effect on the fit, whereas performace score
+has only a small effect on the fit, whereas performance score
 has a much stronger relationship to survival.
 
 \subsection{Chronic Granulotomous Disease}
@@ -385,7 +384,7 @@ Laplace approximation since there are both a much
 larger number of random effects (\Sexpr{length(unique(cgd$id))} subjects)
 and we do not have ``a large number of events'' per random
 effect.  Over half of subjects, and hence their corresponding 
-coefficients $b_i$, have none!
+coefficients $b_i$, have no events at all.
 <<cgd, fig=TRUE, include=FALSE>>=
 cfit <- coxme(Surv(tstart, tstop, status) ~ treat + age +
                   (1 | id), data=cgd, refine.n=500, refine.detail=TRUE)

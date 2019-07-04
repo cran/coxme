@@ -1,5 +1,19 @@
 \name{NEWS}
 \title{NEWS file for the coxme package}
+\section{Changes to version 2.2-14}{
+  \itemize{
+    \item Add data(minnbreast) to the coxme.Rnw vignette. (2-12)
+    \item For 2-13, fix a typo (in this file) that caused it to fail
+    CRAN.
+    \item For 2-14, a second typo in this file
+}}
+
+\section{Changes to version 2.2-11}{
+  \itemize{
+    \item Add dimnames to the result of vcov, per user request.
+  }
+}
+    
 \section{Changes to version 2.2-10}{
   \itemize{
     \item Add "loglik[1]=0" lines to two routines, to assauge valgrind's

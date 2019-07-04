@@ -57,7 +57,7 @@ geinit <- function(vinit, vfixed, intercept, G, X, sparse) {
             vfixed <- unlist(vfixed)
         }
         which.fixed[indx] <- TRUE
-        theta[which.fixed] <- vfixed[which.fixed]
+        theta[which.fixed] <- vfixed
     }
 
     if (any(theta[[1]] <=0)) stop("Variance must be >0")

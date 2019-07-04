@@ -53,7 +53,10 @@ VarCorr.lmekin <- function(x, ...)
 vcov.coxme <- function(object, ...) {
     nf <- length(fixef(object))
     indx <- seq(length=nf, to=nrow(object$var))
-    as.matrix(object$var[indx, indx])
+    vmat <- as.matrix(object$var[indx, indx])
+    vname <- names(fixef(object))
+    dimnames(vmat) <- list(vname, vname)
+    vmat
 }
 
 vcov.lmekin <- vcov.coxme  

@@ -36,10 +36,11 @@ efit3
 
 
 ###################################################
-### code chunk number 6: coxme.Rnw:292-309
+### code chunk number 6: coxme.Rnw:292-310
 ###################################################
 library(coxme)
 library(kinship2)
+data(minnbreast)
 options(show.signif.stars=FALSE)
 makefig <- function(file) {
     pdf(paste(file, "pdf", sep='.'), width=7, height=5)
@@ -58,7 +59,7 @@ dev.off()
 
 
 ###################################################
-### code chunk number 7: coxme.Rnw:334-342
+### code chunk number 7: coxme.Rnw:335-343
 ###################################################
 minnfemale <- minnbreast[minnbreast$sex == 'F' & !is.na(minnbreast$sex),]
 fit0 <- coxph(Surv(endage, cancer) ~ I(parity>0), minnfemale,
@@ -71,7 +72,7 @@ print(fit1)
 
 
 ###################################################
-### code chunk number 8: coxme.Rnw:380-399
+### code chunk number 8: coxme.Rnw:381-400
 ###################################################
 ncancer <- with(minnfemale, tapply(cancer, famid, sum, na.rm=T))
 pyears <-  with(minnfemale, tapply(endage -18, famid, sum, na.rm=T))
@@ -95,7 +96,7 @@ print(round(temp,2))
 
 
 ###################################################
-### code chunk number 9: coxme.Rnw:423-436
+### code chunk number 9: coxme.Rnw:424-437
 ###################################################
 estvar <- seq(.2, .6, length=15)^2  #range of std values
 loglik <- double(15)
@@ -113,7 +114,7 @@ dev.off()
 
 
 ###################################################
-### code chunk number 10: coxme.Rnw:447-450
+### code chunk number 10: coxme.Rnw:448-451
 ###################################################
 temp <- 2*diff(fit1$loglik)[1] - loglik
 approx(temp[1:8], sqrt(estvar[1:8]), 3.84)$y
@@ -121,7 +122,7 @@ approx(temp[9:15], sqrt(estvar[9:15]), 3.84)$y
 
 
 ###################################################
-### code chunk number 11: coxme.Rnw:488-493
+### code chunk number 11: coxme.Rnw:489-494
 ###################################################
 kmat <- kinship(mped)
 fit2 <- coxme(Surv(endage, cancer) ~ I(parity>0) + (1|id),

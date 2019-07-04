@@ -145,7 +145,7 @@ abline(h= diff(cfit$loglik[1:2]) - qchisq(.95, 1)/2, lty=2)
 
 
 ###################################################
-### code chunk number 10: laplace.Rnw:470-473
+### code chunk number 10: laplace.Rnw:469-472
 ###################################################
 cfit1 <- coxph(Surv(time, status) ~ rx + nodes + extent +
          strata(etype) + cluster(id), colon)
@@ -153,7 +153,7 @@ cfit1
 
 
 ###################################################
-### code chunk number 11: laplace.Rnw:486-494
+### code chunk number 11: laplace.Rnw:485-493
 ###################################################
 cfit2 <- coxme(Surv(time, status) ~ rx + nodes + extent + 
                strata(etype) + (1|id), colon,

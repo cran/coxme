@@ -292,6 +292,7 @@ The analysis of this data set was the original genesis of the coxme function.
 <<>>=
 library(coxme)
 library(kinship2)
+data(minnbreast)
 options(show.signif.stars=FALSE)
 makefig <- function(file) {
     pdf(paste(file, "pdf", sep='.'), width=7, height=5)
