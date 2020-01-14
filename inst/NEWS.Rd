@@ -1,5 +1,14 @@
 \name{NEWS}
 \title{NEWS file for the coxme package}
+\section{Changes to version 2.2-16}{
+  \itemize{
+    \item Change external symbols per a request from CRAN, see 1.6.4.1
+    of Writing R Extensions.
+    \item Remove some 'never used' variables from C code, to forestall
+    compiler warnings.
+    \item Repair one "class(x)=='" clause to "inherits(x, ".
+}}
+
 \section{Changes to version 2.2-14}{
   \itemize{
     \item Add data(minnbreast) to the coxme.Rnw vignette. (2-12)

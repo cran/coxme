@@ -28,7 +28,8 @@ catch early and give a good message for.
 
 <<matrix.reconcile>>= 
 matrix.reconcile <- function(varlist, bname) {
-    ismat <- function(x) class(x) %in% c('matrix', 'bdsmatrix')
+    ismat <- function(x) 
+        inherits(x, "matrix") || inherits(x, "bdsmatrix")
     msize <- length(bname)
     #the final size of our matrices
     if(any(duplicated(bname))) 

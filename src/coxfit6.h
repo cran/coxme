@@ -1,4 +1,3 @@
-/* $Id: coxfit6.h,v 1.4 2003/04/07 18:31:39 therneau Exp $  */
 /*
 ** The common variables for the coxfit6 routines.  These are saved in
 **  a single external list, in order to not use up external
@@ -10,7 +9,7 @@
 **   call is faster than passing everything in from Splus each time.
 */
 
-struct {
+extern struct {
     double eps;         /* convergence criteria */
     double tolerch;     /* tolerance for the cholesky routines */
     double *stop;       /* vector of death times */

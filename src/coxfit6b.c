@@ -34,11 +34,10 @@ SEXP coxfit6b(SEXP maxiter2,  SEXP beta2, SEXP pmatb2, SEXP pmatr2) {
     int    nvar, nvar2, nvar2b;
     int    nfrail, ns, nfac;
     int    nfns;    /* number of factors that are not sparse */
-    int    halving;
 
     double  denom, zbeta, risk;
     double  temp, temp2;
-    double  newlik;
+    double  newlik =0;    /* =0 to stop compiler warning */
     double  d2, efron_wt;
     double  ndead;
     double  *dptr;
@@ -98,7 +97,6 @@ SEXP coxfit6b(SEXP maxiter2,  SEXP beta2, SEXP pmatb2, SEXP pmatr2) {
 	psum[i] = temp;
 	}
 
-    halving =0 ;             /* =1 when in the midst of "step halving" */
     loglik[0] =0; loglik[1]=0;  /* keep valgrind happy wrt a spurious warning */
     for (iter=0; iter<= maxiter[1]; iter++) {
 	/*
@@ -436,13 +434,11 @@ SEXP coxfit6b(SEXP maxiter2,  SEXP beta2, SEXP pmatb2, SEXP pmatr2) {
 	if (iter>0 && newlik < loglik[1] && 
 	           fabs(1-(loglik[1]/newlik)) > c6.eps)  {  
 	    /*it is not converging ! */
-	    halving =1;
 	    for (i=0; i<nvar3; i++)
 		beta[i] = (c6.oldbeta[i] + beta[i]) /2; 
 	    continue;
 	    }
 
-	halving =0;
 	cholesky4(&(c6.imat[ns]), nvar3, c6.nblock, 
 				  c6.bsize,  c6.imatb, c6.tolerch);
 

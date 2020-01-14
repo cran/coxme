@@ -72,7 +72,7 @@ lmekin <- function(formula,  data,
     vparm <- vector('list', nrandom)
     is.variance <- rep(TRUE, nrandom)  #penalty fcn returns a variance or penalty?
     ismat <- function (x) {
-        inherits(x, "matrix") || inherits(x, "bdsmatrix") | inherits(x, "Matrix")
+        inherits(x, c("matrix", "bdsmatrix", "Matrix"), which=FALSE)
     }
     if (missing(varlist) || is.null(varlist)) {
         varlist <- vector('list', nrandom)
@@ -80,7 +80,7 @@ lmekin <- function(formula,  data,
         }
     else {
         if (is.function(varlist)) varlist <- varlist()
-        if (class(varlist)=='coxmevar') varlist <- list(varlist)
+        if (inherits(varlist, 'coxmevar')) varlist <- list(varlist)
         else if (ismat(varlist))
             varlist <- list(coxmeMlist(list(varlist)))
         else {

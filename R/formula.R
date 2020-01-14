@@ -121,7 +121,6 @@ hasAbar <- function(x) {
     else if (class(x) == '(') return(hasAbar(x[[2]]))
     else return(FALSE)
     }
-
 subbar <- function(x) {
     if (class(x)=='formula') x[[length(x)]] <- subbar(x[[length(x)]])
 

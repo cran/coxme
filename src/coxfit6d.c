@@ -26,7 +26,7 @@ void coxfit6d(Sint *nrefine,  double *beta,  double *bhat,
     int i,j,p;
     int ii, istrat;
     int    nvar, nvar2;
-    int    nfrail, ns, nfac;
+    int    nfrail, nfac;
     int    nfns;    /* number of factors that are not sparse */
 
     double  newlik;
@@ -37,7 +37,6 @@ void coxfit6d(Sint *nrefine,  double *beta,  double *bhat,
 
     nfrail = c6.nfrail;    /* number of penalized coefficients */
     nvar   = c6.nvar;      /* number of unpenalized coefficients */
-    ns     = c6.nsparse;   /* number of factor levels that are sparse */
     nfac   = c6.nfactor;   /* number of factor levels (penalized) */
     nvar2  = nvar + (nfrail - nfac);  /* number of cols of X */
     nfns   = nfrail - nfac; /* number of penalized that are not factors*/

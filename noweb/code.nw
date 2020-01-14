@@ -401,7 +401,7 @@ if (nrandom ==0) stop("No random effects terms found")
 vparm <- vector('list', nrandom)
 is.variance <- rep(TRUE, nrandom)  #penalty fcn returns a variance or penalty?
 ismat <- function (x) {
-    inherits(x, "matrix") || inherits(x, "bdsmatrix") | inherits(x, "Matrix")
+    inherits(x, c("matrix", "bdsmatrix", "Matrix"), which=FALSE)
 }
 if (missing(varlist) || is.null(varlist)) {
     varlist <- vector('list', nrandom)
@@ -409,7 +409,7 @@ if (missing(varlist) || is.null(varlist)) {
     }
 else {
     if (is.function(varlist)) varlist <- varlist()
-    if (class(varlist)=='coxmevar') varlist <- list(varlist)
+    if (inherits(varlist, 'coxmevar')) varlist <- list(varlist)
     else if (ismat(varlist))
         varlist <- list(coxmeMlist(list(varlist)))
     else {
@@ -3356,7 +3356,10 @@ VarCorr.lmekin <- function(x, ...)
 vcov.coxme <- function(object, ...) {
     nf <- length(fixef(object))
     indx <- seq(length=nf, to=nrow(object$var))
-    as.matrix(object$var[indx, indx])
+    vmat <- as.matrix(object$var[indx, indx])
+    vname <- names(fixef(object))
+    dimnames(vmat) <- list(vname, vname)
+    vmat
 }
 
 vcov.lmekin <- vcov.coxme  
@@ -4215,4 +4218,4 @@ setAs("dsCMatrix", "bdsmatrix", function(from) {
     })
 @ 
 
-\end{document}
+nd{document}

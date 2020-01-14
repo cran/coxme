@@ -1,4 +1,3 @@
-/*  $Id: coxfit6a.c,v 1.9 2006/08/01 19:26:44 therneau Exp $ */
 /* A reentrant version of the Coxfit program, for random effects modeling
 **   with reasonable efficiency (I hope).  The important arrays are saved
 **   from call to call so as to speed up the process.  The x-matrix itself
@@ -95,8 +94,14 @@
 */
 #include <math.h>
 #include "coxmeS.h"
-#include "coxfit6.h"
 #include "bdsmatrix.h"
+
+/* Some compilers now do not like common symbols.  So all routines but one should
+**  use 'extern'.  Added to coxfit6.h, in this function ONLY turn it off.
+*/
+#define extern 
+#include "coxfit6.h"
+#undef extern
 
 /* the next line is just so that I can use "c6.n" instead of "coxfit6.n", etc*/
 #define c6 coxfit6  

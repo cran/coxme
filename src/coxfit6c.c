@@ -22,15 +22,12 @@ void coxfit6c(double *u,      double *imatb,
 	      Sint  *rank,    Sint *ny) {
     int i,j,k;
     double *dptr;
-    int nvar, nvar2, nvar3;
-    int nfac;  /* number of factors */
+    int nvar, nvar3;
     int    nf, ns;
 
     nf   = c6.nfrail;
     nvar = c6.nvar;
     ns   = c6.nsparse;
-    nfac = c6.nfactor;
-    nvar2= nvar + (nf - nfac);  /* number of cols of X */
     nvar3= nvar + nf; /* total number of coefficients */
 
     k=0;
