@@ -21,7 +21,7 @@
 /* the next line is just so that I can use "c6.n" instead of "coxfit6.n", etc*/
 #define c6 coxfit6  
 
-void coxfit6d(Sint *nrefine,  double *beta,  double *bhat,
+void coxfit6d(int *nrefine,  double *beta,  double *bhat,
 	      double *loglik) {
     int i,j,p;
     int ii, istrat;

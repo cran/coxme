@@ -19,7 +19,7 @@
 
 void coxfit6c(double *u,      double *imatb,
 	      double *imatr, double *hinvb, double *hinvr,
-	      Sint  *rank,    Sint *ny) {
+	      int  *rank,    int *ny) {
     int i,j,k;
     double *dptr;
     int nvar, nvar3;
@@ -59,7 +59,7 @@ void coxfit6c(double *u,      double *imatb,
 }
 
 
-void coxfit6e(Sint *ny){
+void coxfit6e(int *ny){
     int nvar2;
     nvar2 = c6.nvar + (c6.nfrail - c6.nfactor); /*number of columns of X*/
     /*

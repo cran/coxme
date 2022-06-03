@@ -180,7 +180,7 @@ else {
                     varlist[[i]] <-varlist[[i]]()
                 if (ismat(varlist[[i]]))
                     varlist[[i]] <- coxmeMlist(list(varlist[[i]]))
-                if (class(varlist[[i]]) != 'coxmevar') {
+                if (!inherits(varlist[[i]], 'coxmevar')) {
                     if (is.list(varlist[[i]])) {
                         if (all(sapply(varlist[[i]], ismat)))
                             varlist[[i]] <- coxmeMlist(varlist[[i]])

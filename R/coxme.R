@@ -19,7 +19,7 @@ coxme <- function(formula,  data,
         }
     if (!missing(random)) {
         warning("The random argument of coxme is depreciated")
-        if (class(random) != 'formula' || length(random) !=2) 
+        if (!inherits(random, 'formula') || length(random) !=2) 
             stop("Invalid random formula")
         j <- length(formula)   #will be 2 or 3, depending on if there is a y
 
@@ -115,7 +115,7 @@ coxme <- function(formula,  data,
                         varlist[[i]] <-varlist[[i]]()
                     if (ismat(varlist[[i]]))
                         varlist[[i]] <- coxmeMlist(list(varlist[[i]]))
-                    if (class(varlist[[i]]) != 'coxmevar') {
+                    if (!inherits(varlist[[i]], 'coxmevar')) {
                         if (is.list(varlist[[i]])) {
                             if (all(sapply(varlist[[i]], ismat)))
                                 varlist[[i]] <- coxmeMlist(varlist[[i]])

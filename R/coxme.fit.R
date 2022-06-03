@@ -174,6 +174,7 @@ coxme.fit <- function(x, y, strata, offset, ifixed, control,
                    as.integer(control$sparse.calc))
     means   <- ifit$means
     scale   <- ifit$scale
+    if (any(scale <=0)) stop("one of the covariates is a constant")
     logfun <- function(theta, varlist, vparm, kfun, ntheta, ncoef, 
                        init, fit0, iter, timedep) {
         gkmat <- gchol(kfun(theta, varlist, vparm, ntheta, ncoef))

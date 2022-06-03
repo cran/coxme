@@ -110,14 +110,14 @@ static double **bmatrix(int nblock, int *bsize, int rcol,
 			int nfrail, int size);
 static double ** cmatrix(int nrow, int ncol);
 
-void coxfit6a(Sint *nused,      Sint *nvar,      Sint *ny,     
+void coxfit6a(int *nused,      int *nvar,      int *ny,     
 	      double *yy,       double *covar2,  double *offset2,
-	      double *weights2, Sint  *nstrat,   Sint *strata,    
-	      Sint *sorts,      Sint *fcol,      Sint *fx,
-	      Sint *findex,
-	      Sint *nblock,     Sint *bsize,     Sint *rsize,
-	      double *means,    double *xscale,  Sint *method,
-	      double *tolerch,  double *eps,     Sint *standard) { 
+	      double *weights2, int  *nstrat,   int *strata,    
+	      int *sorts,      int *fcol,      int *fx,
+	      int *findex,
+	      int *nblock,     int *bsize,     int *rsize,
+	      double *means,    double *xscale,  int *method,
+	      double *tolerch,  double *eps,     int *standard) { 
 
     int i,j,k, p1, p2, istrat;
     int nsparse, fsize;

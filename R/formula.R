@@ -1,6 +1,6 @@
 # Automatically generated from the noweb directory
 formula1 <- function(x) {
-    if (class(x)=='formula') {  #top level call
+    if (inherits(x,'formula')) {  #top level call
         n <- length(x)  # 2 if there is no left hand side, 3 otherwise
         temp <- formula1(x[[n]])
         if (is.null(temp$fixed)) x[[n]] <- 1  # only a random term!
@@ -8,8 +8,8 @@ formula1 <- function(x) {
         return(list(fixed=x, random=temp$random))
         }
     
-    if (class(x) == '(' ) {
-        if (class(x[[2]])== 'call' && x[[2]][[1]] == as.name('|')) {
+    if (inherits(x, '(' )) {
+        if (inherits(x[[2]], 'call') && x[[2]][[1]] == as.name('|')) {
             return(list(random = list(x)))
             }
             
@@ -23,7 +23,7 @@ formula1 <- function(x) {
                return(list(fixed= x, random=temp$random))
             }
         }
-    if (class(x) == 'call' && x[[1]] == as.name('+')) {
+    if (inherits(x,  'call') && x[[1]] == as.name('+')) {
         temp1 <- formula1(x[[2]])
         if (length(x)==2) return(temp1)  #no merge needed
         temp2 <- formula1(x[[3]])
@@ -41,7 +41,7 @@ formula1 <- function(x) {
                         random=c(temp1$random, temp2$random)))
             }
         }
-    if (class(x)== 'call' && x[[1]] == as.name('-')) {
+    if (inherits(x, 'call') && x[[1]] == as.name('-')) {
         temp1 <- formula1(x[[2]])
         if (length(x)==2) return(temp1)
         temp2 <- formula1(x[[3]])
@@ -56,7 +56,7 @@ formula1 <- function(x) {
                         random= temp1$random))
             }
        }            
-    if (class(x)== 'call' && (x[[1]] == '*' || x[[1]] == ':')) {
+    if (inherits(x, 'call') && (x[[1]] == '*' || x[[1]] == ':')) {
         temp1 <- formula1(x[[2]])
         if (length(x) ==2) return(temp1)
         temp2 <- formula1(x[[3]])
@@ -91,7 +91,7 @@ formula2 <- function(term) {
         }
     else interact <- NULL
    
-    if (class(term) != '(' || !is.call(term[[2]]) || 
+    if (!inherits(term, '(') || !is.call(term[[2]]) || 
                               term[[2]][[1]] != as.name('|')) 
         stop("Formula error: Expected a random term") 
 
@@ -111,28 +111,28 @@ findIntercept <- function(x) {
         else FALSE
 }
 hasAbar <- function(x) {
-  if (class(x)== 'call') {
+  if (inherits(x, 'call')) {
         if (x[[1]]== as.name('|')) return(TRUE)
         else if (x[[1]]==as.name( '+') || x[[1]]== as.name('-') ||
                  x[[1]]==as.name( '*') || x[[1]]== as.name(':'))
             return(hasAbar(x[[2]]) || hasAbar(x[[3]]))
         else return(FALSE)
         }
-    else if (class(x) == '(') return(hasAbar(x[[2]]))
+    else if (inherits(x, '(')) return(hasAbar(x[[2]]))
     else return(FALSE)
     }
 subbar <- function(x) {
-    if (class(x)=='formula') x[[length(x)]] <- subbar(x[[length(x)]])
+    if (inherits(x,'formula')) x[[length(x)]] <- subbar(x[[length(x)]])
 
-    if (class(x)== 'call') {
+    if (inherits(x, 'call')) {
         if (x[[1]]==as.name( '+') || x[[1]]== as.name('-') ||
             x[[1]]==as.name( '*') || x[[1]]== as.name(':')) {
             x[[2]] <- subbar(x[[2]])
             if (length(x)==3) x[[3]] <- subbar(x[[3]])
             }
         }
-    else if (class(x)== '(') {
-        if (class(x[[2]])== 'call' && x[[2]][[1]] == as.name('|')) 
+    else if (inherits(x, '(')) {
+        if (inherits(x[[2]], 'call') && x[[2]][[1]] == as.name('|')) 
             x[[2]][[1]] <- as.name('+')
         else x[[2]] <- subbar(x[[2]])
         }

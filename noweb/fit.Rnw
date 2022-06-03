@@ -288,6 +288,7 @@ ifit <- .C(Ccoxfit6a,
                as.integer(control$sparse.calc))
 means   <- ifit$means
 scale   <- ifit$scale
+if (any(scale <=0)) stop("one of the covariates is a constant")
 @ 
 
 The second routine does the real work and is called within the [[logfun]]

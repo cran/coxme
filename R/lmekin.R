@@ -17,7 +17,7 @@ lmekin <- function(formula,  data,
         }
     if (!missing(random)) {
         warning("The random argument of lmekin is depreciated")
-        if (class(random) != 'formula' || length(random) !=2) 
+        if (!inherits(random, 'formula') || length(random) !=2) 
             stop("Invalid random formula")
         j <- length(formula)   #will be 2 or 3, depending on if there is a y
 
@@ -98,7 +98,7 @@ lmekin <- function(formula,  data,
                         varlist[[i]] <-varlist[[i]]()
                     if (ismat(varlist[[i]]))
                         varlist[[i]] <- coxmeMlist(list(varlist[[i]]))
-                    if (class(varlist[[i]]) != 'coxmevar') {
+                    if (!inherits(varlist[[i]], 'coxmevar')) {
                         if (is.list(varlist[[i]])) {
                             if (all(sapply(varlist[[i]], ismat)))
                                 varlist[[i]] <- coxmeMlist(varlist[[i]])
@@ -368,7 +368,7 @@ lmekin <- function(formula,  data,
                         matrix(0., nrow=nfrail, ncol=ncol(X)))
     ystar <- c(Y, rep(0.0, nfrail))
     mydiag <- function(x) {
-        if (class(x)=="sparseQR") diag(x@R)
+        if (inherits(x, "sparseQR")) diag(x@R)
         else diag(qr.R(x))
     }
 
@@ -440,7 +440,7 @@ lmekin <- function(formula,  data,
         yresid <- ystar - xstar %*% fcoef
         rcoef <- qr.coef(qr1, yresid)
         cvec <- qr.qty(qr2, cvec)[-(1:nvar)] #residual part
-        if (class(qr2)=="sparseQR") varmat <- chol2inv(qr2@R)
+        if (inherits(qr2, "sparseQR")) varmat <- chol2inv(qr2@R)
         else varmat <- chol2inv(qr.R(qr2))
         yhat <- as.vector(zstar1 %*% rcoef + X %*% fcoef) #kill any names
     }

@@ -1,5 +1,13 @@
 \name{NEWS}
 \title{NEWS file for the coxme package}
+\section{Changes to version 2.2-17}{
+  \itemize{
+    \item Remove references to Sint in the C code, per CRAN request
+    \item Change a number of class(x) =='abc' type statements to
+    inherit, in order to avoid CRAN warningings.  (These were all in the
+    context of walking a parse tree, where all the objects have
+    exactly one class, and so was actually okay.)
+}}
 \section{Changes to version 2.2-16}{
   \itemize{
     \item Change external symbols per a request from CRAN, see 1.6.4.1

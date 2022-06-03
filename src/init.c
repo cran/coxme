@@ -8,21 +8,21 @@
 #include "Rversion.h"
 
 SEXP agfit6b (SEXP maxiter2,   SEXP beta2,   SEXP pmatb2,  SEXP pmatr2);
-void agfit6d (Sint *nrefine,   double *beta, double *bhat, double *loglik);
+void agfit6d (int *nrefine,   double *beta, double *bhat, double *loglik);
 SEXP bds_dsc (SEXP blocksize2, SEXP blocks2, SEXP rmat2,   SEXP dim2);
-void coxfit6a(Sint *nused,      Sint *nvar,      Sint *ny,     
+void coxfit6a(int *nused,      int *nvar,      int *ny,     
 	      double *yy,       double *covar2,  double *offset2,
-	      double *weights2, Sint  *nstrat,   Sint *strata,    
-	      Sint *sorts,      Sint *fcol,      Sint *fx,
-	      Sint *findex,
-	      Sint *nblock,     Sint *bsize,     Sint *rsize,
-	      double *means,    double *xscale,  Sint *method,
-	      double *tolerch,  double *eps,     Sint *standard);
+	      double *weights2, int  *nstrat,   int *strata,    
+	      int *sorts,      int *fcol,      int *fx,
+	      int *findex,
+	      int *nblock,     int *bsize,     int *rsize,
+	      double *means,    double *xscale,  int *method,
+	      double *tolerch,  double *eps,     int *standard);
 SEXP coxfit6b(SEXP maxiter2,    SEXP beta2,      SEXP pmatb2,  SEXP pmatr2);
 void coxfit6c(double *u,        double *imatb,   double *imatr,
-	      double *hinvb,    double *hinvr,   Sint  *rank,   Sint *ny);
-void coxfit6d(Sint *nrefine,    double *beta,    double *bhat,  double *loglik); 
-void coxfit6e(Sint *ny);
+	      double *hinvb,    double *hinvr,   int  *rank,   int *ny);
+void coxfit6d(int *nrefine,    double *beta,    double *bhat,  double *loglik); 
+void coxfit6e(int *ny);
 
 static const R_CMethodDef Centries[] = {
     {"Cagfit6d",  (DL_FUNC) &agfit6d,   4},

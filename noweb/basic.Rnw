@@ -23,7 +23,7 @@ if (!missing(fixed)) {
     }
 if (!missing(random)) {
     warning("The random argument of coxme is depreciated")
-    if (class(random) != 'formula' || length(random) !=2) 
+    if (!inherits(random, 'formula') || length(random) !=2) 
         stop("Invalid random formula")
     j <- length(formula)   #will be 2 or 3, depending on if there is a y
 

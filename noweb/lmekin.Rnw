@@ -48,7 +48,7 @@ if (!missing(fixed)) {
     }
 if (!missing(random)) {
     warning("The random argument of lmekin is depreciated")
-    if (class(random) != 'formula' || length(random) !=2) 
+    if (!inherits(random, 'formula') || length(random) !=2) 
         stop("Invalid random formula")
     j <- length(formula)   #will be 2 or 3, depending on if there is a y
 
@@ -321,7 +321,7 @@ lower triangular form.
 
 <<lmekin-fit>>=
 mydiag <- function(x) {
-    if (class(x)=="sparseQR") diag(x@R)
+    if (inherits(x, "sparseQR")) diag(x@R)
     else diag(qr.R(x))
 }
 
@@ -403,7 +403,7 @@ else {
     yresid <- ystar - xstar %*% fcoef
     rcoef <- qr.coef(qr1, yresid)
     cvec <- qr.qty(qr2, cvec)[-(1:nvar)] #residual part
-    if (class(qr2)=="sparseQR") varmat <- chol2inv(qr2@R)
+    if (inherits(qr2, "sparseQR")) varmat <- chol2inv(qr2@R)
     else varmat <- chol2inv(qr.R(qr2))
     yhat <- as.vector(zstar1 %*% rcoef + X %*% fcoef) #kill any names
 }
