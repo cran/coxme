@@ -10,7 +10,7 @@ options(continue=' ', width=60)
 ### code chunk number 2: lmekin.Rnw:70-78
 ###################################################
 library(coxme)
-require(nlme)
+library(nlme)
 fit1 <- lme(effort~Type, random= ~ 1|Subject,data=ergoStool,
              method="ML")
 fit2 <- lmekin(effort ~ Type + (1|Subject), data=ergoStool, 
@@ -39,7 +39,7 @@ all.equal(fit3$logLik, fit4$loglik)
 ### code chunk number 4: gaw
 ###################################################
 getOption("SweaveHooks")[["fig"]]()
-require(kinship2)
+library(kinship2)
 
 load("gaw.rda")
 gped <- with(gdata, pedigree(id, father, mother, sex=sex, famid=famid))

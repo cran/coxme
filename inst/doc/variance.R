@@ -123,7 +123,7 @@ gexchange <- function() {
     class(out) <- "coxmevar"
     out
 }
-require(coxme)
+library(coxme)
 set.seed(1960)
 n <- nrow(lung)
 dgene <- matrix(rnorm(n*12, mean=8, sd=2), ncol=12)

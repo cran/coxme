@@ -1,5 +1,11 @@
 \name{NEWS}
 \title{NEWS file for the coxme package}
+\section{Changes to version 2.2-18}{
+  \itemize{
+    \item Remove a no longer needed test (bdstest.R), which interacted
+    poorly with an update of the Matrix package.
+}}
+
 \section{Changes to version 2.2-17}{
   \itemize{
     \item Remove references to Sint in the C code, per CRAN request
