@@ -1,4 +1,4 @@
-57806a7fe769f1fff49c6ca2ef1b21c7 *DESCRIPTION
+96ca655957cfc099eb5100e28577ec17 *DESCRIPTION
 e2ab429b7d4f7f7edf0964ee6082788d *NAMESPACE
 a14022e9f4bc48d1e1e45607cfedce62 *R/anova.coxme.R
 53bf1e7bcad73c5f2d70e48b5de2e42c *R/anova.coxmelist.R
@@ -77,7 +77,7 @@ dcbc87195be940eaf4df4d3983c4a965 *noweb/reconcile.Rnw
 41e3eb38b37c97b3b4cacd03ac146f99 *src/bds_dsc.c
 0ef6fb729c2f68921af73fc18c06810b *src/bdsmatrix.c
 080c1219ad3fd68f63fea0cb337c50c2 *src/bdsmatrix.h
-4867b4693c10a8effae62748968964aa *src/bdsmatrix_stub.h
+b78a293beb1c170e2ea9d012ce497fea *src/bdsmatrix_stub.h
 4a2b6cbcc41c4fbd554758a44000f971 *src/coxfit6.h
 450fbeb8c1cee44cd9e92a40e04bd29a *src/coxfit6a.c
 3041e37b64852dd236a4abc0bbb17cb9 *src/coxfit6b.c
