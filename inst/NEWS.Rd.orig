@@ -7,10 +7,7 @@
 \section{Changes to version 2.2-18}{
   \itemize{
     \item Add summary.coxme and print.summary.coxme methods
-    \item Remove a no longer needed test (bdstest.R), which interacted
-    poorly with an update of the Matrix package.
 }}
-
 \section{Changes to version 2.2-17}{
   \itemize{
     \item Remove references to Sint in the C code, per CRAN request

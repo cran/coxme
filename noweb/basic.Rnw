@@ -51,8 +51,7 @@ a random term, the subbar function replaces each of these with a '+'.
 temp <- call('model.frame', formula= subbar(formula))
 for (i in c('data', 'subset', 'weights', 'na.action'))
     if (!is.null(Call[[i]])) temp[[i]] <- Call[[i]]
-if (is.R()) m <- eval.parent(temp)
-else        m <- eval(temp, sys.parent())
+m <- eval.parent(temp)
 @ 
 The final line  is one of the few in the code that is specific to the
 particular S engine being used.

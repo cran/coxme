@@ -309,7 +309,7 @@ $\theta$ requires 5 iterations to converge and another only 4 for instance)
 introduce little 'bumps' into the apparent loglik, which
 drives [[optim]] nuts. Hence the min and max iteration count is identical.
 A similar issue applies to the vector of starting estimates $(b, \beta)$.
-It is tempting to use the final results from the prior $theta$ evaluation,
+It is tempting to use the final results from the prior $\theta$ evaluation,
 but again this introduces an artifact.
 Thus all the calls to [[logfun]] use the same initial value.
 Two obvious choices for [[init]] are a vector of zeros and the fit
@@ -319,7 +319,7 @@ singular; user's sometimes fit models with more variables than they should. %'
 The current compromise is .7*the final fit + .3*zeros; this number is no
 more than a wild guess.
 The addition of (1 -fit0) to the final logliklihood makes the 
-the solution be in the neighborhood of 1 (for the case that the random
+solution be in the neighborhood of 1 (for the case that the random
 terms add nothing to the fit)
 which works well with the convergence criteria of
 the [[optim]] routine.

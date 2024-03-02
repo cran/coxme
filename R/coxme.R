@@ -35,8 +35,7 @@ coxme <- function(formula,  data,
     temp <- call('model.frame', formula= subbar(formula))
     for (i in c('data', 'subset', 'weights', 'na.action'))
         if (!is.null(Call[[i]])) temp[[i]] <- Call[[i]]
-    if (is.R()) m <- eval.parent(temp)
-    else        m <- eval(temp, sys.parent())
+    m <- eval.parent(temp)
         Y <- model.extract(m, "response")
         n <- nrow(Y)
         if (n==0) stop("No observations remain in the data set")

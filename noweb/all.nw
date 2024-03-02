@@ -8,7 +8,6 @@
 \setlength{\evensidemargin}{\oddsidemargin}
 
 \newcommand{\myfig}[1]{\includegraphics[width=\textwidth]{figure/#1.pdf}}
-\newcommand{\code}[1]{\texttt{#1}}
 
 \title{The \emph{coxme} function in S}
 \author{Terry Therneau \\ Mayo Clinic}
@@ -141,7 +140,7 @@ if (!missing(fixed)) {
     }
 if (!missing(random)) {
     warning("The random argument of coxme is depreciated")
-    if (!inherits(random, 'formula') || length(random) !=2) 
+    if (class(random) != 'formula' || length(random) !=2) 
         stop("Invalid random formula")
     j <- length(formula)   #will be 2 or 3, depending on if there is a y
 
@@ -169,7 +168,8 @@ a random term, the subbar function replaces each of these with a '+'.
 temp <- call('model.frame', formula= subbar(formula))
 for (i in c('data', 'subset', 'weights', 'na.action'))
     if (!is.null(Call[[i]])) temp[[i]] <- Call[[i]]
-m <- eval.parent(temp)
+if (is.R()) m <- eval.parent(temp)
+else        m <- eval(temp, sys.parent())
 @ 
 The final line  is one of the few in the code that is specific to the
 particular S engine being used.
@@ -400,7 +400,7 @@ if (nrandom ==0) stop("No random effects terms found")
 vparm <- vector('list', nrandom)
 is.variance <- rep(TRUE, nrandom)  #penalty fcn returns a variance or penalty?
 ismat <- function (x) {
-    inherits(x, c("matrix", "bdsmatrix", "Matrix"), which=FALSE)
+    inherits(x, "matrix") || inherits(x, "bdsmatrix") | inherits(x, "Matrix")
 }
 if (missing(varlist) || is.null(varlist)) {
     varlist <- vector('list', nrandom)
@@ -408,7 +408,7 @@ if (missing(varlist) || is.null(varlist)) {
     }
 else {
     if (is.function(varlist)) varlist <- varlist()
-    if (inherits(varlist, 'coxmevar')) varlist <- list(varlist)
+    if (class(varlist)=='coxmevar') varlist <- list(varlist)
     else if (ismat(varlist))
         varlist <- list(coxmeMlist(list(varlist)))
     else {
@@ -426,7 +426,7 @@ else {
                     varlist[[i]] <-varlist[[i]]()
                 if (ismat(varlist[[i]]))
                     varlist[[i]] <- coxmeMlist(list(varlist[[i]]))
-                if (!inherits(varlist[[i]], 'coxmevar')) {
+                if (class(varlist[[i]]) != 'coxmevar') {
                     if (is.list(varlist[[i]])) {
                         if (all(sapply(varlist[[i]], ismat)))
                             varlist[[i]] <- coxmeMlist(varlist[[i]])
@@ -944,7 +944,7 @@ inner call the routine removes the extra set.
 
 <<formula>>=
 formula1 <- function(x) {
-    if (inherits(x,'formula')) {  #top level call
+    if (class(x)=='formula') {  #top level call
         n <- length(x)  # 2 if there is no left hand side, 3 otherwise
         temp <- formula1(x[[n]])
         if (is.null(temp$fixed)) x[[n]] <- 1  # only a random term!
@@ -952,8 +952,8 @@ formula1 <- function(x) {
         return(list(fixed=x, random=temp$random))
         }
     
-    if (inherits(x, '(' )) {
-        if (inherits(x[[2]], 'call') && x[[2]][[1]] == as.name('|')) {
+    if (class(x) == '(' ) {
+        if (class(x[[2]])== 'call' && x[[2]][[1]] == as.name('|')) {
             return(list(random = list(x)))
             }
             
@@ -981,7 +981,7 @@ We re-paste the two fixed effect portions together.
 The random terms are easier since they are lists, which concatonate
 properly even if one of them is null.
 <<formula>>=
-    if (inherits(x,  'call') && x[[1]] == as.name('+')) {
+    if (class(x) == 'call' && x[[1]] == as.name('+')) {
         temp1 <- formula1(x[[2]])
         if (length(x)==2) return(temp1)  #no merge needed
         temp2 <- formula1(x[[3]])
@@ -1006,7 +1006,7 @@ Becase the expressions are parsed from left to right [[~ age-1 + (1|group)]]
 will be okay (though -1 makes no sense in a Cox model),
 but [[~ age - (1 + (1|group))]] will fail.  
 <<formula>>=
-    if (inherits(x, 'call') && x[[1]] == as.name('-')) {
+    if (class(x)== 'call' && x[[1]] == as.name('-')) {
         temp1 <- formula1(x[[2]])
         if (length(x)==2) return(temp1)
         temp2 <- formula1(x[[3]])
@@ -1031,7 +1031,7 @@ a [[(1|group)*sex]] random term.
 Interactions between random effects are not defined.
 I don't know what they would mean if they were \ldots.   %'
 <<formula>>=
-    if (inherits(x, 'call') && (x[[1]] == '*' || x[[1]] == ':')) {
+    if (class(x)== 'call' && (x[[1]] == '*' || x[[1]] == ':')) {
         temp1 <- formula1(x[[2]])
         if (length(x) ==2) return(temp1)
         temp2 <- formula1(x[[3]])
@@ -1110,7 +1110,7 @@ formula2 <- function(term) {
         }
     else interact <- NULL
    
-    if (!inherits(term, '(') || !is.call(term[[2]]) || 
+    if (class(term) != '(' || !is.call(term[[2]]) || 
                               term[[2]][[1]] != as.name('|')) 
         stop("Formula error: Expected a random term") 
 
@@ -1158,14 +1158,14 @@ route.
 
 <<formula>>=
 hasAbar <- function(x) {
-  if (inherits(x, 'call')) {
+  if (class(x)== 'call') {
         if (x[[1]]== as.name('|')) return(TRUE)
         else if (x[[1]]==as.name( '+') || x[[1]]== as.name('-') ||
                  x[[1]]==as.name( '*') || x[[1]]== as.name(':'))
 	    return(hasAbar(x[[2]]) || hasAbar(x[[3]]))
         else return(FALSE)
         }
-    else if (inherits(x, '(')) return(hasAbar(x[[2]]))
+    else if (class(x) == '(') return(hasAbar(x[[2]]))
     else return(FALSE)
     }
 @ 
@@ -1184,17 +1184,17 @@ with two + signs in a row.  The second one is treated as unary so only has
 a single argument.
 <<formula>>=
 subbar <- function(x) {
-    if (inherits(x,'formula')) x[[length(x)]] <- subbar(x[[length(x)]])
+    if (class(x)=='formula') x[[length(x)]] <- subbar(x[[length(x)]])
 
-    if (inherits(x, 'call')) {
+    if (class(x)== 'call') {
         if (x[[1]]==as.name( '+') || x[[1]]== as.name('-') ||
             x[[1]]==as.name( '*') || x[[1]]== as.name(':')) {
 	    x[[2]] <- subbar(x[[2]])
             if (length(x)==3) x[[3]] <- subbar(x[[3]])
             }
         }
-    else if (inherits(x, '(')) {
-        if (inherits(x[[2]], 'call') && x[[2]][[1]] == as.name('|')) 
+    else if (class(x)== '(') {
+        if (class(x[[2]])== 'call' && x[[2]][[1]] == as.name('|')) 
             x[[2]][[1]] <- as.name('+')
         else x[[2]] <- subbar(x[[2]])
         }
@@ -2723,7 +2723,7 @@ if (is.null(control$sparse.calc)) {
     else control$sparse.calc <- 1
     }
 
-ifit <- .C(Ccoxfit6a, 
+ifit <- .C('coxfit6a', 
                as.integer(n),
                as.integer(nvar),
                as.integer(ncol(y)),
@@ -2748,7 +2748,6 @@ ifit <- .C(Ccoxfit6a,
                as.integer(control$sparse.calc))
 means   <- ifit$means
 scale   <- ifit$scale
-if (any(scale <=0)) stop("one of the covariates is a constant")
 @ 
 
 The second routine does the real work and is called within the [[logfun]]
@@ -2769,7 +2768,7 @@ $\theta$ requires 5 iterations to converge and another only 4 for instance)
 introduce little 'bumps' into the apparent loglik, which
 drives [[optim]] nuts. Hence the min and max iteration count is identical.
 A similar issue applies to the vector of starting estimates $(b, \beta)$.
-It is tempting to use the final results from the prior $\theta$ evaluation,
+It is tempting to use the final results from the prior $theta$ evaluation,
 but again this introduces an artifact.
 Thus all the calls to [[logfun]] use the same initial value.
 Two obvious choices for [[init]] are a vector of zeros and the fit
@@ -2779,40 +2778,44 @@ singular; user's sometimes fit models with more variables than they should. %'
 The current compromise is .7*the final fit + .3*zeros; this number is no
 more than a wild guess.
 The addition of (1 -fit0) to the final logliklihood makes the 
-solution be in the neighborhood of 1 (for the case that the random
+the solution be in the neighborhood of 1 (for the case that the random
 terms add nothing to the fit)
 which works well with the convergence criteria of
 the [[optim]] routine.
 
 There are actually two C routines [[coxfit6b]] and [[agfit6b]], for ordinary
-and (start,stop) survival data, respectively.  The \code{timedep} argument 
+and (start,stop) survival data, respectively.  The [[ofile]] argument 
 is a character string giving the choice.
 <<define-logfun>>=
 logfun <- function(theta, varlist, vparm, kfun, ntheta, ncoef, 
-                   init, fit0, iter, timedep) {
+                   init, fit0, iter, ofile) {
     gkmat <- gchol(kfun(theta, varlist, vparm, ntheta, ncoef))
     if (is.variance) {
         ikmat <- solve(gkmat)  #inverse of kmat, which is the penalty
         if (any(diag(ikmat) <=0)) { #Not an spd matrix
             return(0)  # return a "worse than null" fit
         }
-        if (timedep) {
-            # start, stop data
-            fit <- .Call(Cagfit6b, as.integer(c(iter, iter)), 
-                         as.double(init), ikmat@blocks, ikmat@rmat)
-            }
-        else fit <- .Call(Ccoxfit6b, as.integer(c(iter, iter)), 
-                         as.double(init), ikmat@blocks, ikmat@rmat) 
+        fit <- .C(ofile,
+                  iter= as.integer(c(iter,iter)),
+                  beta = as.double(init),
+                  loglik = double(2),
+                  as.double(ikmat@blocks),
+                  as.double(ikmat@rmat),
+                  hdet = double(1))
         ilik <- fit$loglik[2] -
             .5*(sum(log(diag(gkmat))) + fit$hdet)
     }
     else {
         # The variance functions have returned the inverse matrix
-        if (timedep) fit <- .Call(Cagfit6b, c(iter, iter), as.double(init),
-                                  gkmat@blocks, gkmat@rmat)
-        else fit <- .Call(Ccoxfit6b, c(iter, iter), as.double(init),
-                          gkmat@blocks, gkmat@rmat)
-        ilik <- fit$loglik[2] + .5*(sum(log(diag(gkmat))) - fit$hdet)
+        fit <- .C(ofile,
+                  iter= as.integer(c(iter,iter)),
+                  beta = as.double(init),
+                  loglik = double(2),
+                  as.double(gkmat@blocks),
+                  as.double(gkmat@rmat),
+                  hdet = double(1))
+        ilik <- fit$loglik[2] +
+            .5*(sum(log(diag(gkmat))) - fit$hdet)
     }
     -(1+ ilik - fit0)
     }
@@ -2822,7 +2825,7 @@ logfun <- function(theta, varlist, vparm, kfun, ntheta, ncoef,
 The third routine is used for iterative refinement of the Laplace
 estimate. The arguments in this case are
 \begin{description}
-  \item[timedep] TRUE for start/stop data
+  \item[rfile] either 'coxfit6d' or 'agfit6d'
   \item[beta] the final solution vector $(b, \beta)$, though only $\beta$
     is used.
   \item[bmat] matrix of trial values for the random coefficients.
@@ -2873,15 +2876,12 @@ if (refine.n > 0) {
     }
     else stop("Unrecognized value for refine.method")
     
-    if (timedep) rfit <- .C(Cagfit6d, as.integer(refine.n),
-                            as.double(fit$beta),
-                            as.double(bmat2),
-                            loglik = double(refine.n))
-    else rfit <- .C(Ccoxfit6d, as.integer(refine.n),
-                    as.double(fit$beta),
-                    as.double(bmat2),
-                    loglik = double(refine.n))
- 
+    rfit <- .C(rfile,
+               as.integer(refine.n),
+               as.double(fit$beta),
+               as.double(bmat2),
+               loglik = double(refine.n))
+
     if (control$refine.method == "direct") {
         temp <- max(rfit$loglik)   #keep exp() in range
         errhat <- exp(rfit$loglik - temp) 
@@ -2979,7 +2979,8 @@ orders the entry times.
 	    newstrat  <- cumsum(table(strata))
 	    }
 	status <- y[,3]
-        timedep <- TRUE
+        ofile <-  'agfit6b'
+        rfile <-  'agfit6d'
         coxfitfun<- agreg.fit
         }
     else {
@@ -2992,7 +2993,8 @@ orders the entry times.
 	    newstrat <-  cumsum(table(strata))
 	    }
 	status <- y[,2]
-        timedep <- FALSE
+        ofile <- 'coxfit6b' # fitting routine
+        rfile <- 'coxfit6d' # refine.n routine
         coxfitfun <- coxph.fit
         }
 @ 
@@ -3060,7 +3062,7 @@ else {
         ll <- logfun(as.numeric(testvals[i,]), 
                      varlist, vparm, kfun, ntheta, ncoef, 
                      init=init.coef, loglik0, 
-                     control$inner.iter, timedep)
+                     control$inner.iter, ofile)
         if (is.finite(ll)) {
             #ll calc can fail if someone picks a very bad starting guess
             if (is.null(bestlog) || ll < bestlog) {  
@@ -3079,7 +3081,7 @@ In the code below
 which are defined in [[coxme.control]] and accessible for the user to
 change, and [[logpar]] is a list of parameters that will be needed by
 logfun.
-In R the ones that are simple copies such as \code{timedep} would not need to
+In R the ones that are simple copies such as [[ofile]] would not need to
 be included in the list since they are inherited with the environment,
 however, I prefer to make such hidden arguments explicit.
 <<coxme-fit>>=
@@ -3088,7 +3090,7 @@ however, I prefer to make such hidden arguments explicit.
                    ntheta=ntheta, ncoef=ncoef, kfun=kfun,
                    init=init.coef, fit0= loglik0,
                    iter=control$inner.iter,
-                   timedep = timedep)
+                   ofile=ofile)
     mfit <- do.call('optim', c(list(par= theta, fn=logfun, gr=NULL), 
                            control$optpar, logpar))
     theta <- mfit$par
@@ -3106,27 +3108,27 @@ The phrase [[c(ikmat@rmat,0)]] makes sure something is passed when
 gkmat <- gchol(kfun(theta, varlist, vparm, ntheta, ncoef))
 if (is.variance) {
     ikmat <- solve(gkmat)  #inverse of kmat, which is the penalty
-    if (timedep) 
-        fit <- .Call(Cagfit6b, iter= as.integer(c(0L, control$iter.max)),
-                     beta <- c(rep(0., npenal), fit0$coef*scale),
-                     ikmat@blocks, c(ikmat@rmat, 0.))
-    else fit <- .Call(Ccoxfit6b, iter= as.integer(c(0L, control$iter.max)),
-                      beta <- c(rep(0., npenal), fit0$coef*scale),
-                      ikmat@blocks, c(ikmat@rmat, 0.))
+    fit <- .C(ofile,
+              iter= as.integer(c(0, control$iter.max)),
+              beta = as.double(c(rep(0., npenal), fit0$coef*scale)),
+              loglik = double(2),
+              as.double(ikmat@blocks),
+              as.double(c(ikmat@rmat,0)),
+              hdet = double(1))
     ilik <- fit$loglik[2] -
         .5*(sum(log(diag(gkmat))) + fit$hdet)
 } else {
-    if (timedep) 
-        fit <- .Call(Cagfit6b, iter= as.integer(c(0L, control$iter.max)),
-                     beta <- c(rep(0., npenal), fit0$coef*scale),
-                     gkmat@blocks, c(gkmat@rmat, 0.))
-    else fit <- .Call(Ccoxfit6b, iter= as.integer(c(0L, control$iter.max)),
-                      beta <- c(rep(0., npenal), fit0$coef*scale),
-                      gkmat@blocks, c(gkmat@rmat, 0.))
+    fit <- .C(ofile,
+              iter= as.integer(c(0, control$iter.max)),
+              beta = as.double(c(rep(0., npenal), fit0$coef*scale)),
+              loglik = double(2),
+              as.double(gkmat@blocks),
+              as.double(c(gkmat@rmat,0)),
+              hdet = double(1))
     ilik <- fit$loglik[2] +
         .5*(sum(log(diag(gkmat))) - fit$hdet)
 }
-iter[2] <- iter[2] + fit$iter
+iter[2] <- iter[2] + fit$iter[2]
 @
               
 \subsection{Finishing up}
@@ -3137,7 +3139,7 @@ There are 6 tasks left to do
 <<coxme-rescale>>
 <<coxme-df>>
 <<refine>>  
-.C(Ccoxfit6e, as.integer(ncol(y)))  #release memory
+.C("coxfit6e", as.integer(ncol(y)))  #release memory
 <<create-output-list>>
 @ 
 
@@ -3157,7 +3159,7 @@ nvar2  <- nvar + (nfrail - nsparse)  # total number of non-sparse coefs
 nvar3  <- as.integer(nvar + nfrail)  # total number of coefficients
 btot   <- length(ikmat@blocks)
 
-fit3 <- .C(Ccoxfit6c,
+fit3 <- .C('coxfit6c',
                u    = double(nvar3),
                h.b  = double(btot),
                h.r  = double(nvar2*nvar3),
@@ -3356,10 +3358,7 @@ VarCorr.lmekin <- function(x, ...)
 vcov.coxme <- function(object, ...) {
     nf <- length(fixef(object))
     indx <- seq(length=nf, to=nrow(object$var))
-    vmat <- as.matrix(object$var[indx, indx])
-    vname <- names(fixef(object))
-    dimnames(vmat) <- list(vname, vname)
-    vmat
+    as.matrix(object$var[indx, indx])
 }
 
 vcov.lmekin <- vcov.coxme  
@@ -3440,7 +3439,7 @@ if (!missing(fixed)) {
     }
 if (!missing(random)) {
     warning("The random argument of lmekin is depreciated")
-    if (!inherits(random, 'formula') || length(random) !=2) 
+    if (class(random) != 'formula' || length(random) !=2) 
         stop("Invalid random formula")
     j <- length(formula)   #will be 2 or 3, depending on if there is a y
 
@@ -3666,13 +3665,13 @@ zstar1 <- new("dgCMatrix",
               factors=list())
 if (length(zmat) >0)  {
     # there were random slopes as well
-    zstar1 <- cbind(zstar1, as(Matrix(zmat), "dgCMatrix"))
+    zstar1 <- cBind(zstar1, as(Matrix(zmat), "dgCMatrix"))
 }
 
 nfrail <- ncol(zstar1)
 nvar <- ncol(X)
 if (nvar == 0)  xstar <- NULL  #model with no covariates
-else xstar <- rbind(Matrix(X, sparse=FALSE),
+else xstar <- rBind(Matrix(X, sparse=FALSE),
                     matrix(0., nrow=nfrail, ncol=ncol(X)))
 ystar <- c(Y, rep(0.0, nfrail))
 @ 
@@ -3713,14 +3712,14 @@ lower triangular form.
 
 <<lmekin-fit>>=
 mydiag <- function(x) {
-    if (inherits(x, "sparseQR")) diag(x@R)
+    if (class(x)=="sparseQR") diag(x@R)
     else diag(qr.R(x))
 }
 
 logfun <- function(theta, best=0) {
     vmat <- kfun(theta, varlist, vparm, ntheta, ncoef)
     Delta <- t(solve(chol(as(vmat, "dsCMatrix"), pivot=FALSE)))
-    zstar <- rbind(zstar1, Delta)
+    zstar <- rBind(zstar1, Delta)
     qr1 <- qr(zstar)
     dd <- mydiag(qr1) 
     cvec <- as.vector(qr.qty(qr1, ystar))[-(1:nfrail)]  #residual part
@@ -3776,7 +3775,7 @@ be modest.
 <<lmekin-compute>>=
 vmat <-  kfun(theta, varlist, vparm, ntheta, ncoef)
 Delta <- t(solve(chol(as(vmat, "dsCMatrix"), pivot=FALSE)))
-zstar <- rbind(zstar1, Delta)
+zstar <- rBind(zstar1, Delta)
 qr1 <- qr(zstar)
 dd <- mydiag(qr1)
 ctemp <- as.vector(qr.qty(qr1, ystar))
@@ -3795,7 +3794,7 @@ else {
     yresid <- ystar - xstar %*% fcoef
     rcoef <- qr.coef(qr1, yresid)
     cvec <- qr.qty(qr2, cvec)[-(1:nvar)] #residual part
-    if (inherits(qr2, "sparseQR")) varmat <- chol2inv(qr2@R)
+    if (class(qr2)=="sparseQR") varmat <- chol2inv(qr2@R)
     else varmat <- chol2inv(qr.R(qr2))
     yhat <- as.vector(zstar1 %*% rcoef + X %*% fcoef) #kill any names
 }
@@ -3815,7 +3814,7 @@ else {
 # Debugging code, set the argument to TRUE only during testing
 if (FALSE) {
     # Compute the alternate way (assumes limited reordering)
-    zx <- cbind(zstar, as(xstar, class(zstar)))
+    zx <- cBind(zstar, as(xstar, class(zstar)))
     qr3 <- qr(zx)
     cvec3 <- qr.qty(qr3, ystar)[-(1:(nvar+nfrail))]
     if (method=="ML")  dd3 <- (diag(myqrr(qr3)))[1:nfrail]
@@ -3990,7 +3989,7 @@ object does not.
 setAs("bdsmatrix", "dsCMatrix", function(from) {
     if (length(from@blocks)==0) symmpart(Matrix(from@rmat))
     else {
-        temp <- .Call(Cbds_dsc,
+        temp <- .Call("bds_dsc",
                       from@blocksize,
                       from@blocks,
                       from@rmat,
@@ -4218,4 +4217,4 @@ setAs("dsCMatrix", "bdsmatrix", function(from) {
     })
 @ 
 
-nd{document}
+\end{document}

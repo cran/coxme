@@ -126,5 +126,3 @@ print.coxme <- function(x, rcoef=FALSE, digits=options()$digits, ...) {
     invisible(x)
     }
 
-summary.coxme <- function(object, ...)
-    print.coxme(object, ...)

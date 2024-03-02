@@ -63,9 +63,7 @@ anova.coxme <- function (object, ...,  test = 'Chisq') {
     fit <- object
     for (i in (nmodel:1)[-nmodel]) {
         form <- paste(".~ .", termlist[i], sep=' - ')
-        if (is.R()) fit <-update(fit, as.formula(form,env=fenv), 
-                                 subset=tsub)
-        else        fit <- update(fit, as.formula(form), subset=tsub)
+        fit <-update(fit, as.formula(form,env=fenv), subset=tsub)
         df[i] <- sum(!is.na(coef(fit)))
         loglik[i] <- fit$loglik[2]
         }
@@ -85,7 +83,5 @@ anova.coxme <- function (object, ...,  test = 'Chisq') {
 		   deparse(object$terms[[2]]),
 		   "\nTerms added sequentially (first to last)\n", 
 		   sep = "")
-    if (is.R())
-	    structure(table, heading = title, class = c("anova", "data.frame"))
-    else    structure(table, heading= title, class='anova')
+    structure(table, heading = title, class = c("anova", "data.frame"))
 }
