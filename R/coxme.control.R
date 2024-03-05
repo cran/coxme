@@ -14,7 +14,8 @@ coxme.control <- function(eps=1e-8,
                           varinit = c(.02, .1, .4, .8)^2,
                           corinit = c(0, .3)) {
     if (iter.max <0) stop("Invalid value for iterations")
-    if (inner.iter<1) stop("Invalid value for inner iterations")
+    if (!missing(inner.iter) && (!is.numeric(inner.iter) || inner.iter<1)) 
+        stop("Invalid value for inner iterations")
     if (eps <=0) stop ("Invalid convergence criteria")
     if (eps <= toler.chol) 
 	    warning("For numerical accuracy, tolerance should be < eps")

@@ -1,5 +1,10 @@
 \name{NEWS}
 \title{NEWS file for the coxme package}
+\section{Changes to version 2.2-20}{
+  \itemize{
+    \item Fix oversight in coxme.control that led to an inner.iter<1
+    check when inner.iter was still an expression.
+}}
 \section{Changes to version 2.2-19}{
   \itemize{
     \item Remove is.R() calls
