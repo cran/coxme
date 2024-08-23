@@ -68,35 +68,35 @@ void coxfit6e(int *ny){
     **  to which it was allocated
     */
     if (c6.calc2 ==1) {
-	Free(c6.dlag2[0]);
-	Free(c6.dlag2);
-	Free(c6.dlag1);
-	Free(c6.tlist);
+	R_Free(c6.dlag2[0]);
+	R_Free(c6.dlag2);
+	R_Free(c6.dlag1);
+	R_Free(c6.tlist);
 	}
    if (*ny ==3) {
-	Free(c6.start);
-	Free(c6.sort1);
+	R_Free(c6.start);
+	R_Free(c6.sort1);
 	}
-    Free(c6.status);
-    Free(c6.a);
+    R_Free(c6.status);
+    R_Free(c6.a);
     if (nvar2 >0) {
-	Free(c6.cmat2[0]);
-	Free(c6.cmat2);
-	Free(c6.cmat[0]);
-	Free(c6.cmat);
+	R_Free(c6.cmat2[0]);
+	R_Free(c6.cmat2);
+	R_Free(c6.cmat[0]);
+	R_Free(c6.cmat);
 	}
-    Free(c6.imatb);
-    Free(c6.imat);
+    R_Free(c6.imatb);
+    R_Free(c6.imat);
     if (nvar2 >0) {
-	Free(c6.x[0]);
-	Free(c6.x);
+	R_Free(c6.x[0]);
+	R_Free(c6.x);
 	}
     if (c6.nfx >0) {
-	Free(c6.findex);
-	Free(c6.fx);
+	R_Free(c6.findex);
+	R_Free(c6.fx);
 	}
     if (c6.nblock >0) {
-	Free(c6.bsize);
+	R_Free(c6.bsize);
 	}
     }
 

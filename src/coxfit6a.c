@@ -66,7 +66,7 @@
 **    which are not factors will come first.  An example would be random
 **    slopes, one slope per group.
 **
-**  work arrays: these are allocated using Calloc (so they persist
+**  work arrays: these are allocated using R_Calloc (so they persist
 **                until the call of coxfit6_c)
 **       mark(n)      : number of tied deaths at a time point.  This is an
 **                       integer, but stored as double since it is a frequent
@@ -143,7 +143,7 @@ void coxfit6a(int *nused,      int *nvar,      int *ny,
 	for (i=0; i<c6.nblock; i++)
 	    nsparse += bsize[i];
 
-	c6.bsize = (int *) Calloc(c6.nblock + 2*nsparse, int);
+	c6.bsize = (int *) R_Calloc(c6.nblock + 2*nsparse, int);
 	c6.bstart= c6.bsize + c6.nblock;
 	c6.bstop  = c6.bstart + nsparse;
 	k=0; 
@@ -164,8 +164,8 @@ void coxfit6a(int *nused,      int *nvar,      int *ny,
 
     c6.nfx = *fcol;
     if (c6.nfx >0) {  /* there are factor variables: save fcol matrix */
-	c6.fx  = (int *) Calloc(c6.nfx *n, int);
-	c6.findex = (double *) Calloc(c6.nfx * c6.nfrail, double);
+	c6.fx  = (int *) R_Calloc(c6.nfx *n, int);
+	c6.findex = (double *) R_Calloc(c6.nfx * c6.nfrail, double);
 	j =0;
 	for (i=0; i<(n * c6.nfx); i++)  if (fx[i] > j) j = fx[i];
 	c6.nfactor = j+1;  /* max number of levels for any factor */
@@ -185,8 +185,8 @@ void coxfit6a(int *nused,      int *nvar,      int *ny,
     **    needed with the random effect terms.
     */
     if (nvar2 >0) {  /* save away the X matrix */
-	c6.x =  (double **) Calloc(nvar2, double *);
-	dptr =  (double *)  Calloc(n*nvar2, double);
+	c6.x =  (double **) R_Calloc(nvar2, double *);
+	dptr =  (double *)  R_Calloc(n*nvar2, double);
 	if (*ny==2) {
 	    for (j=0; j<nvar2; j++) {  
 		c6.x[j] = dptr;
@@ -214,7 +214,7 @@ void coxfit6a(int *nused,      int *nvar,      int *ny,
 	c6.cmat2 = cmatrix(nvar2b, nvar3);
 	}
 
-    c6.a = (double *) Calloc(5*nvar3 + 4*n + c6.nfx, double);
+    c6.a = (double *) R_Calloc(5*nvar3 + 4*n + c6.nfx, double);
     c6.oldbeta = c6.a + nvar3;
     c6.a2      = c6.oldbeta + nvar3;
     c6.wtave   = c6.a2 + nvar3;
@@ -223,7 +223,7 @@ void coxfit6a(int *nused,      int *nvar,      int *ny,
     c6.u       = c6.offset + n;
     c6.temp    = c6.u     + nvar3;
     c6.stop    = c6.temp  + nvar3 + c6.nfx;
-    c6.status  = Calloc(2*n+ *nstrat + nvar3, int);
+    c6.status  = R_Calloc(2*n+ *nstrat + nvar3, int);
     c6.mark    = c6.status +n;
     c6.strata  = c6.mark +n;
     c6.itemp   = c6.strata + *nstrat;
@@ -246,9 +246,9 @@ void coxfit6a(int *nused,      int *nvar,      int *ny,
 	    }
 	}
     else {
-	c6.sort1 = (int *) Calloc(2*n, int);
+	c6.sort1 = (int *) R_Calloc(2*n, int);
 	c6.sort2 = c6.sort1 +n;
-	c6.start = (double *) Calloc(n, double);
+	c6.start = (double *) R_Calloc(n, double);
 	for (i=0; i<n; i++) {
 	    c6.weights[i] = weights2[i];
 	    c6.offset[i]  = offset2[i];
@@ -329,8 +329,8 @@ void coxfit6a(int *nused,      int *nvar,      int *ny,
 	j=0;
 	for (i=0; i<n; i++)
 	    if (c6.mark[i] >j) j=c6.mark[i];   /* max number of tied deaths */
-	c6.tlist = (int *) Calloc(j, int);
-	c6.dlag1 = (double *) Calloc(nvar3, double);
+	c6.tlist = (int *) R_Calloc(j, int);
+	c6.dlag1 = (double *) R_Calloc(nvar3, double);
 	c6.dsum3 = c6.dlag1 + nsparse;
 
 	/* 
@@ -350,8 +350,8 @@ static double ** cmatrix(int nrow, int ncol) {
     double *ptr;
     int i;
 
-    mat = (double **) Calloc(nrow, double *);
-    ptr = (double *)  Calloc(nrow*ncol, double);
+    mat = (double **) R_Calloc(nrow, double *);
+    ptr = (double *)  R_Calloc(nrow*ncol, double);
     for (i=0; i<nrow; i++) {
 	mat[i] = ptr;
 	ptr += ncol;
@@ -381,10 +381,10 @@ static double **bmatrix(int nblock, int *bsize, int rcol,
     double **pointer;
     double *temp;
 
-    pointer = (double **) Calloc(nfrail+rcol, double *);  /* ragged array */
+    pointer = (double **) R_Calloc(nfrail+rcol, double *);  /* ragged array */
 
     i = size + rcol*(rcol+nfrail);
-    temp = (double *) Calloc(i, double);  /* the data itself */
+    temp = (double *) R_Calloc(i, double);  /* the data itself */
 
     /* index the sparse portion */
     k=0;

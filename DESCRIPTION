@@ -1,7 +1,7 @@
 Title: Mixed Effects Cox Models
 Priority: optional
 Package: coxme
-Version: 2.2-20
+Version: 2.2-22
 Depends: survival (>= 2.36.14), methods, bdsmatrix(>= 1.3), R(>= 2.10)
 Imports: nlme, Matrix (>= 1.0)
 Suggests: mvtnorm, kinship2
@@ -18,8 +18,8 @@ Description: Fit Cox proportional hazards models containing both
  on Ripatti and Palmgren, Biometrics 2002.
 License: LGPL-2
 NeedsCompilation: yes
-Packaged: 2024-03-04 19:55:10 UTC; therneau
+Packaged: 2024-08-22 13:31:22 UTC; therneau
 Author: Terry M. Therneau [aut, cre]
 Maintainer: Terry M. Therneau <therneau.terry@mayo.edu>
 Repository: CRAN
-Date/Publication: 2024-03-05 05:30:39 UTC
+Date/Publication: 2024-08-23 04:20:06 UTC

@@ -1,5 +1,9 @@
 \name{NEWS}
 \title{NEWS file for the coxme package}
+\section{Changes to version 2.2-21}{
+  \itemize{
+    \item Change Calloc to R_Calloc and Free to R_Free, per CRAN request
+}}
 \section{Changes to version 2.2-20}{
   \itemize{
     \item Fix oversight in coxme.control that led to an inner.iter<1
